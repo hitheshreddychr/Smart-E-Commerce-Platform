@@ -1,0 +1,13 @@
+$kind: http-request
+name: Verify/validate a token
+description: Validates the provided Bearer token and returns its status and associated user information.
+url: http://127.0.0.1:8000/auth/me
+method: GET
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{accessToken}}
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 2000

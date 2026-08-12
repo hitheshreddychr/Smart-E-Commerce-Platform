@@ -1,0 +1,8 @@
+$kind: http-request
+url: http://127.0.0.1:8000/orders/checkout
+method: POST
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 1000

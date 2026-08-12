@@ -1,0 +1,10 @@
+$kind: http-request
+description: Registers a new user account. Provide email, password, and name in the request body.
+url: http://127.0.0.1:8000/auth/register
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{\n    "name": "Test Customer",\n    "email": "testcustomer@example.com",\n    "password": "Test@12345"\n}'
+order: 1000
