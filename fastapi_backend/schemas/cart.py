@@ -1,6 +1,6 @@
-#this defines the cart request and response schemas
+from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class CartCreate(BaseModel):
@@ -8,11 +8,30 @@ class CartCreate(BaseModel):
     quantity: int = 1
 
 
-class CartResponse(BaseModel):
-    id: int
-    user_id: int
+class CartUpdate(BaseModel):
     product_id: int
     quantity: int
 
-    class Config:
-        from_attributes = True
+
+class CartRemove(BaseModel):
+    product_id: int
+
+
+class CartItemResponse(BaseModel):
+    id: int
+    user_id: int
+    product_id: int
+    product_name: str
+    price: Decimal
+    quantity: int
+    item_total: Decimal
+    stock: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CartResponse(BaseModel):
+    items: list[CartItemResponse]
+    cart_total: Decimal
+    tax: Decimal
+    grand_total: Decimal

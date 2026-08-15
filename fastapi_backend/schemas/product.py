@@ -1,8 +1,6 @@
-#this defines the product request and response schemas
-
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ProductCreate(BaseModel):
@@ -11,6 +9,18 @@ class ProductCreate(BaseModel):
     price: Decimal
     stock: int = 0
     images: str | None = None
+    category: str = "General"
+    popularity: int = 0
+
+
+class ProductUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    price: Decimal | None = None
+    stock: int | None = None
+    images: str | None = None
+    category: str | None = None
+    popularity: int | None = None
 
 
 class ProductResponse(BaseModel):
@@ -20,6 +30,7 @@ class ProductResponse(BaseModel):
     price: Decimal
     stock: int
     images: str | None
+    category: str
+    popularity: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

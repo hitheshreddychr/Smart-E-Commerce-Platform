@@ -1,4 +1,4 @@
-# This handles the cart for the logged-in user
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 from database.connection import SessionLocal
 from models.cart import Cart
 from models.product import Product
-from schemas.cart import CartCreate, CartResponse
+from schemas.cart import (
+    CartCreate,
+    CartRemove,
+    CartResponse,
+    CartUpdate,
+)
 from utils.dependencies import get_current_user
 
 
@@ -16,9 +21,8 @@ router = APIRouter(
 )
 
 
-# ============================================================
-# DATABASE
-# ============================================================
+TAX_RATE = Decimal("0.00")
+
 
 def get_db():
     db = SessionLocal()
@@ -29,37 +33,84 @@ def get_db():
         db.close()
 
 
+def build_cart_response(
+    db: Session,
+    user_id: int
+):
+    cart_items = (
+        db.query(Cart)
+        .join(Product, Cart.product_id == Product.id)
+        .filter(Cart.user_id == user_id)
+        .all()
+    )
+
+    items = []
+    cart_total = Decimal("0.00")
+
+    for cart_item in cart_items:
+        product = (
+            db.query(Product)
+            .filter(Product.id == cart_item.product_id)
+            .first()
+        )
+
+        if not product:
+            continue
+
+        item_total = (
+            Decimal(str(product.price))
+            * cart_item.quantity
+        )
+
+        cart_total += item_total
+
+        items.append(
+            {
+                "id": cart_item.id,
+                "user_id": cart_item.user_id,
+                "product_id": cart_item.product_id,
+                "product_name": product.name,
+                "price": Decimal(str(product.price)),
+                "quantity": cart_item.quantity,
+                "item_total": item_total,
+                "stock": product.stock
+            }
+        )
+
+    tax = cart_total * TAX_RATE
+    grand_total = cart_total + tax
+
+    return {
+        "items": items,
+        "cart_total": cart_total,
+        "tax": tax,
+        "grand_total": grand_total
+    }
+
+
 # ============================================================
-# ADD TO CART
+# ADD PRODUCT TO CART
+# POST /cart/add
 # ============================================================
 
 @router.post(
-    "/",
+    "/add",
     response_model=CartResponse
 )
 def add_to_cart(
-    cart: CartCreate,
+    cart_data: CartCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
-    # --------------------------------------------------------
-    # Quantity must be greater than zero
-    # --------------------------------------------------------
-
-    if cart.quantity <= 0:
+    if cart_data.quantity <= 0:
         raise HTTPException(
             status_code=400,
             detail="Quantity must be greater than 0"
         )
 
-    # --------------------------------------------------------
-    # Find product
-    # --------------------------------------------------------
-
     product = (
         db.query(Product)
-        .filter(Product.id == cart.product_id)
+        .filter(Product.id == cart_data.product_id)
         .first()
     )
 
@@ -69,61 +120,112 @@ def add_to_cart(
             detail="Product not found"
         )
 
-    # --------------------------------------------------------
-    # Check stock
-    # --------------------------------------------------------
-
     if product.stock <= 0:
         raise HTTPException(
             status_code=400,
             detail=f"{product.name} is out of stock"
         )
 
-    # --------------------------------------------------------
-    # Check whether this product is already in cart
-    # --------------------------------------------------------
-
     existing_cart = (
         db.query(Cart)
         .filter(
             Cart.user_id == current_user["id"],
-            Cart.product_id == cart.product_id
+            Cart.product_id == cart_data.product_id
         )
         .first()
     )
 
-    # --------------------------------------------------------
-    # If product already exists in cart,
-    # add the new quantity to the existing quantity
-    # --------------------------------------------------------
-
     if existing_cart:
-
-        new_quantity = existing_cart.quantity + cart.quantity
+        new_quantity = (
+            existing_cart.quantity
+            + cart_data.quantity
+        )
 
         if new_quantity > product.stock:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     f"Only {product.stock} units of "
-                    f"{product.name} are available. "
-                    f"You already have {existing_cart.quantity} "
-                    f"in your cart."
+                    f"{product.name} are available"
                 )
             )
 
         existing_cart.quantity = new_quantity
 
-        db.commit()
-        db.refresh(existing_cart)
+    else:
+        if cart_data.quantity > product.stock:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Only {product.stock} units of "
+                    f"{product.name} are available"
+                )
+            )
 
-        return existing_cart
+        new_cart = Cart(
+            user_id=current_user["id"],
+            product_id=cart_data.product_id,
+            quantity=cart_data.quantity
+        )
 
-    # --------------------------------------------------------
-    # First time adding this product
-    # --------------------------------------------------------
+        db.add(new_cart)
 
-    if cart.quantity > product.stock:
+    db.commit()
+
+    return build_cart_response(
+        db,
+        current_user["id"]
+    )
+
+
+# ============================================================
+# UPDATE CART QUANTITY
+# PUT /cart/update
+# ============================================================
+
+@router.put(
+    "/update",
+    response_model=CartResponse
+)
+def update_cart(
+    cart_data: CartUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    if cart_data.quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Quantity must be greater than 0"
+        )
+
+    cart_item = (
+        db.query(Cart)
+        .filter(
+            Cart.user_id == current_user["id"],
+            Cart.product_id == cart_data.product_id
+        )
+        .first()
+    )
+
+    if not cart_item:
+        raise HTTPException(
+            status_code=404,
+            detail="Product is not in your cart"
+        )
+
+    product = (
+        db.query(Product)
+        .filter(Product.id == cart_data.product_id)
+        .first()
+    )
+
+    if not product:
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found"
+        )
+
+    if cart_data.quantity > product.stock:
         raise HTTPException(
             status_code=400,
             detail=(
@@ -132,38 +234,68 @@ def add_to_cart(
             )
         )
 
-    # --------------------------------------------------------
-    # Create cart item
-    # --------------------------------------------------------
+    cart_item.quantity = cart_data.quantity
 
-    new_cart = Cart(
-        user_id=current_user["id"],
-        product_id=cart.product_id,
-        quantity=cart.quantity
-    )
-
-    db.add(new_cart)
     db.commit()
-    db.refresh(new_cart)
 
-    return new_cart
+    return build_cart_response(
+        db,
+        current_user["id"]
+    )
 
 
 # ============================================================
-# GET CART
+# REMOVE PRODUCT FROM CART
+# DELETE /cart/remove
+# ============================================================
+
+@router.delete(
+    "/remove",
+    response_model=CartResponse
+)
+def remove_from_cart(
+    cart_data: CartRemove,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    cart_item = (
+        db.query(Cart)
+        .filter(
+            Cart.user_id == current_user["id"],
+            Cart.product_id == cart_data.product_id
+        )
+        .first()
+    )
+
+    if not cart_item:
+        raise HTTPException(
+            status_code=404,
+            detail="Product is not in your cart"
+        )
+
+    db.delete(cart_item)
+    db.commit()
+
+    return build_cart_response(
+        db,
+        current_user["id"]
+    )
+
+
+# ============================================================
+# VIEW CART
+# GET /cart
 # ============================================================
 
 @router.get(
-    "/",
-    response_model=list[CartResponse]
+    "",
+    response_model=CartResponse
 )
 def get_cart(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
-    return (
-        db.query(Cart)
-        .filter(Cart.user_id == current_user["id"])
-        .all()
+    return build_cart_response(
+        db,
+        current_user["id"]
     )
