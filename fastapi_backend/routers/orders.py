@@ -1,16 +1,28 @@
-# This handles checkout and orders for the logged-in user
-
+import os
 from decimal import Decimal
 
+import stripe
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database.connection import SessionLocal
 from models.cart import Cart
 from models.order import Order, OrderItem
+from models.payment import Payment
 from models.product import Product
 from schemas.order import OrderResponse
+from schemas.payment import CheckoutResponse, PaymentResponse
 from utils.permissions import customer_required
+
+
+load_dotenv()
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "inr")
+
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
 
 
 router = APIRouter(
@@ -18,10 +30,6 @@ router = APIRouter(
     tags=["Orders"]
 )
 
-
-# ============================================================
-# DATABASE
-# ============================================================
 
 def get_db():
     db = SessionLocal()
@@ -34,31 +42,31 @@ def get_db():
 
 # ============================================================
 # CHECKOUT
-# CUSTOMER ONLY
+# POST /orders/checkout
 # ============================================================
 
 @router.post(
     "/checkout",
-    response_model=OrderResponse
+    response_model=CheckoutResponse
 )
 def checkout(
     db: Session = Depends(get_db),
     current_user: dict = Depends(customer_required)
 ):
-
-    # --------------------------------------------------------
-    # Get logged-in customer's cart
-    # --------------------------------------------------------
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Stripe is not configured. "
+                "Set STRIPE_SECRET_KEY in the .env file."
+            )
+        )
 
     cart_items = (
         db.query(Cart)
         .filter(Cart.user_id == current_user["id"])
         .all()
     )
-
-    # --------------------------------------------------------
-    # Cart must not be empty
-    # --------------------------------------------------------
 
     if not cart_items:
         raise HTTPException(
@@ -67,12 +75,7 @@ def checkout(
         )
 
     total_amount = Decimal("0.00")
-
     order_items_data = []
-
-    # --------------------------------------------------------
-    # Check stock and calculate total
-    # --------------------------------------------------------
 
     for cart_item in cart_items:
 
@@ -85,7 +88,10 @@ def checkout(
         if not product:
             raise HTTPException(
                 status_code=404,
-                detail=f"Product {cart_item.product_id} not found"
+                detail=(
+                    f"Product {cart_item.product_id} "
+                    "not found"
+                )
             )
 
         if cart_item.quantity <= 0:
@@ -106,15 +112,19 @@ def checkout(
 
         item_price = Decimal(str(product.price))
 
-        item_total = item_price * cart_item.quantity
+        item_total = (
+            item_price * cart_item.quantity
+        )
 
         total_amount += item_total
 
-        order_items_data.append({
-            "product_id": product.id,
-            "quantity": cart_item.quantity,
-            "price": item_price
-        })
+        order_items_data.append(
+            {
+                "product_id": product.id,
+                "quantity": cart_item.quantity,
+                "price": item_price
+            }
+        )
 
     # ========================================================
     # CREATE ORDER
@@ -123,7 +133,8 @@ def checkout(
     new_order = Order(
         user_id=current_user["id"],
         total_amount=total_amount,
-        status="pending"
+        status="pending",
+        payment_status="pending"
     )
 
     db.add(new_order)
@@ -156,6 +167,14 @@ def checkout(
             .first()
         )
 
+        if not product:
+            db.rollback()
+
+            raise HTTPException(
+                status_code=404,
+                detail="Product not found"
+            )
+
         if cart_item.quantity > product.stock:
             db.rollback()
 
@@ -168,49 +187,124 @@ def checkout(
                 )
             )
 
-        product.stock = product.stock - cart_item.quantity
+        product.stock -= cart_item.quantity
 
     # ========================================================
-    # CLEAR CART
+    # CREATE PAYMENT RECORD
     # ========================================================
 
-    for cart_item in cart_items:
-        db.delete(cart_item)
-
-    # ========================================================
-    # SAVE EVERYTHING
-    # ========================================================
-
-    db.commit()
-
-    db.refresh(new_order)
-
-    # ========================================================
-    # GET ORDER ITEMS
-    # ========================================================
-
-    order_items = (
-        db.query(OrderItem)
-        .filter(OrderItem.order_id == new_order.id)
-        .all()
+    payment = Payment(
+        order_id=new_order.id,
+        amount=total_amount,
+        payment_method="stripe",
+        status="pending"
     )
 
+    db.add(payment)
+
     # ========================================================
-    # RETURN ORDER
+    # STRIPE AMOUNT
     # ========================================================
 
-    return {
-        "id": new_order.id,
-        "user_id": new_order.user_id,
-        "total_amount": new_order.total_amount,
-        "status": new_order.status,
-        "items": order_items
-    }
+    stripe_amount = int(
+        total_amount * Decimal("100")
+    )
+
+    try:
+
+        # ====================================================
+        # STRIPE PAYMENT INTENT
+        # ====================================================
+
+        payment_intent = stripe.PaymentIntent.create(
+            amount=stripe_amount,
+            currency=STRIPE_CURRENCY,
+            metadata={
+                "order_id": str(new_order.id),
+                "user_id": str(current_user["id"])
+            },
+            automatic_payment_methods={
+                "enabled": True
+            }
+        )
+
+        payment.transaction_id = payment_intent.id
+        payment.status = payment_intent.status
+
+        # ====================================================
+        # STRIPE CHECKOUT SESSION
+        # ====================================================
+
+        checkout_session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": STRIPE_CURRENCY,
+                        "product_data": {
+                            "name": f"Order #{new_order.id}"
+                        },
+                        "unit_amount": stripe_amount
+                    },
+                    "quantity": 1
+                }
+            ],
+            metadata={
+                "order_id": str(new_order.id),
+                "user_id": str(current_user["id"])
+            },
+            success_url=(
+                "http://localhost:5173/payment-success"
+                "?session_id={CHECKOUT_SESSION_ID}"
+            ),
+            cancel_url=(
+                "http://localhost:5173/payment-cancelled"
+            )
+        )
+
+        # ====================================================
+        # SAVE DATABASE
+        # ====================================================
+
+        db.commit()
+        db.refresh(new_order)
+        db.refresh(payment)
+
+        return {
+            "order_id": new_order.id,
+            "amount": total_amount,
+            "currency": STRIPE_CURRENCY,
+            "payment_status": payment.status,
+            "payment_intent_id": payment_intent.id,
+            "payment_intent_client_secret": (
+                payment_intent.client_secret
+            ),
+            "checkout_session_id": checkout_session.id,
+            "checkout_url": checkout_session.url
+        }
+
+    except stripe.error.StripeError as exc:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=502,
+            detail=f"Stripe payment initialization failed: {str(exc)}"
+        )
+
+    except Exception as exc:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Checkout failed: {str(exc)}"
+        )
 
 
 # ============================================================
 # GET MY ORDERS
-# CUSTOMER ONLY
+# GET /orders/
 # ============================================================
 
 @router.get(
@@ -221,7 +315,6 @@ def get_my_orders(
     db: Session = Depends(get_db),
     current_user: dict = Depends(customer_required)
 ):
-
     orders = (
         db.query(Order)
         .filter(Order.user_id == current_user["id"])
@@ -234,16 +327,65 @@ def get_my_orders(
 
         order_items = (
             db.query(OrderItem)
-            .filter(OrderItem.order_id == order.id)
+            .filter(
+                OrderItem.order_id == order.id
+            )
             .all()
         )
 
-        result.append({
-            "id": order.id,
-            "user_id": order.user_id,
-            "total_amount": order.total_amount,
-            "status": order.status,
-            "items": order_items
-        })
+        result.append(
+            {
+                "id": order.id,
+                "user_id": order.user_id,
+                "total_amount": order.total_amount,
+                "status": order.status,
+                "payment_status": order.payment_status,
+                "items": order_items
+            }
+        )
 
     return result
+
+
+# ============================================================
+# GET PAYMENT BY ORDER
+# GET /orders/{order_id}/payment
+# ============================================================
+
+@router.get(
+    "/{order_id}/payment",
+    response_model=PaymentResponse
+)
+def get_payment(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(customer_required)
+):
+    order = (
+        db.query(Order)
+        .filter(
+            Order.id == order_id,
+            Order.user_id == current_user["id"]
+        )
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(
+            status_code=404,
+            detail="Order not found"
+        )
+
+    payment = (
+        db.query(Payment)
+        .filter(Payment.order_id == order_id)
+        .first()
+    )
+
+    if not payment:
+        raise HTTPException(
+            status_code=404,
+            detail="Payment record not found"
+        )
+
+    return payment

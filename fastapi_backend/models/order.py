@@ -31,6 +31,12 @@ class Order(Base):
         nullable=False
     )
 
+    payment_status = Column(
+        String(50),
+        default="pending",
+        nullable=False
+    )
+
 
 class OrderItem(Base):
     __tablename__ = "order_items"
