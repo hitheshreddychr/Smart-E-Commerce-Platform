@@ -1,8 +1,6 @@
-# This defines the Order request and response schemas
-
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class OrderItemResponse(BaseModel):
@@ -11,8 +9,7 @@ class OrderItemResponse(BaseModel):
     quantity: int
     price: Decimal
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrderResponse(BaseModel):
@@ -20,7 +17,7 @@ class OrderResponse(BaseModel):
     user_id: int
     total_amount: Decimal
     status: str
+    payment_status: str
     items: list[OrderItemResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

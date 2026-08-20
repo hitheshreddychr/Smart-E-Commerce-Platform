@@ -19,32 +19,53 @@ function App() {
   const [loginError, setLoginError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // -----------------------------------------
-  // Get Products
-  // -----------------------------------------
+  const pathname = window.location.pathname;
+  const searchParams = new URLSearchParams(window.location.search);
+  const sessionId = searchParams.get("session_id");
+
+  const normalizeCart = (data) => {
+    if (Array.isArray(data)) return data;
+
+    if (Array.isArray(data?.items)) return data.items;
+
+    if (Array.isArray(data?.cart)) return data.cart;
+
+    if (Array.isArray(data?.data)) return data.data;
+
+    return [];
+  };
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`${API_URL}/products/`);
+      const response = await fetch(
+        `${API_URL}/products/`
+      );
 
       if (!response.ok) {
-        throw new Error("Unable to fetch products");
+        throw new Error(
+          "Unable to fetch products"
+        );
       }
 
       const data = await response.json();
 
-      setProducts(data);
+      setProducts(
+        Array.isArray(data) ? data : []
+      );
     } catch (error) {
-      console.error("Error fetching products:", error);
+      console.error(
+        "Error fetching products:",
+        error
+      );
+
+      setProducts([]);
     }
   };
 
-  // -----------------------------------------
-  // Get Cart
-  // -----------------------------------------
-
   const fetchCart = async () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem(
+      "access_token"
+    );
 
     if (!token) {
       setCart([]);
@@ -52,38 +73,42 @@ function App() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/cart/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_URL}/cart`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
-        throw new Error("Unable to fetch cart");
+        throw new Error(
+          "Unable to fetch cart"
+        );
       }
 
       const data = await response.json();
 
-      setCart(data);
+      setCart(normalizeCart(data));
     } catch (error) {
-      console.error("Error fetching cart:", error);
+      console.error(
+        "Error fetching cart:",
+        error
+      );
+
+      setCart([]);
     }
   };
-
-  // -----------------------------------------
-  // Initial Products
-  // -----------------------------------------
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  // -----------------------------------------
-  // Check Existing Login
-  // -----------------------------------------
-
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem(
+      "access_token"
+    );
 
     if (!token) {
       return;
@@ -96,7 +121,9 @@ function App() {
     })
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Token expired");
+          throw new Error(
+            "Token expired"
+          );
         }
 
         return response.json();
@@ -108,18 +135,19 @@ function App() {
         fetchCart();
       })
       .catch(() => {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
+        localStorage.removeItem(
+          "access_token"
+        );
+
+        localStorage.removeItem(
+          "refresh_token"
+        );
 
         setUser(null);
         setLoggedIn(false);
         setCart([]);
       });
   }, []);
-
-  // -----------------------------------------
-  // Login
-  // -----------------------------------------
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -128,288 +156,664 @@ function App() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
+      const response = await fetch(
+        `${API_URL}/auth/login`,
+        {
+          method: "POST",
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
 
-        body: JSON.stringify({
-          name: "SmartShop User",
-          email: email,
-          password: password,
-        }),
-      });
+          body: JSON.stringify({
+            name: "SmartShop User",
+            email: email,
+            password: password,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        setLoginError(data.detail || "Login failed");
+        setLoginError(
+          data.detail ||
+            "Login failed"
+        );
+
         setLoading(false);
         return;
       }
 
-      // Save tokens
-      localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("refresh_token", data.refresh_token);
+      localStorage.setItem(
+        "access_token",
+        data.access_token
+      );
 
-      // Get current user
-      const userResponse = await fetch(`${API_URL}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${data.access_token}`,
-        },
-      });
+      localStorage.setItem(
+        "refresh_token",
+        data.refresh_token
+      );
 
-      const userData = await userResponse.json();
+      const userResponse = await fetch(
+        `${API_URL}/auth/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${data.access_token}`,
+          },
+        }
+      );
+
+      const userData =
+        await userResponse.json();
 
       setUser(userData);
+
       setLoggedIn(true);
+
       setShowLogin(false);
 
       setEmail("");
+
       setPassword("");
 
-      // Get cart after login
       await fetchCart();
     } catch (error) {
-      console.error("Login error:", error);
+      console.error(
+        "Login error:",
+        error
+      );
 
-      setLoginError("Unable to connect to the server");
+      setLoginError(
+        "Unable to connect to the server"
+      );
     }
 
     setLoading(false);
   };
 
-  // -----------------------------------------
-  // Logout
-  // -----------------------------------------
-
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    localStorage.removeItem(
+      "access_token"
+    );
+
+    localStorage.removeItem(
+      "refresh_token"
+    );
 
     setUser(null);
+
     setLoggedIn(false);
+
     setCart([]);
 
     setShowCart(false);
   };
 
-  // -----------------------------------------
-  // Add Product To Cart
-  // -----------------------------------------
-
-  const handleAddToCart = async (productId) => {
+  const handleAddToCart = async (
+    productId
+  ) => {
     if (!loggedIn) {
-      alert("Please login before adding products to cart.");
+      alert(
+        "Please login before adding products to cart."
+      );
+
       setShowLogin(true);
+
       return;
     }
 
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem(
+      "access_token"
+    );
 
     try {
-      const response = await fetch(`${API_URL}/cart/`, {
-        method: "POST",
+      const response = await fetch(
+        `${API_URL}/cart/add`,
+        {
+          method: "POST",
 
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+          headers: {
+            "Content-Type":
+              "application/json",
 
-        body: JSON.stringify({
-          product_id: productId,
-          quantity: 1,
-        }),
-      });
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            product_id: productId,
+            quantity: 1,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.detail || "Unable to add product to cart.");
+        alert(
+          data.detail ||
+            "Unable to add product to cart."
+        );
+
         return;
       }
 
-      await fetchCart();
+      setCart(normalizeCart(data));
 
-      alert("Product added to cart successfully! 🛒");
+      alert(
+        "Product added to cart successfully!"
+      );
     } catch (error) {
-      console.error("Add to cart error:", error);
+      console.error(
+        "Add to cart error:",
+        error
+      );
 
-      alert("Unable to connect to the server.");
+      alert(
+        "Unable to connect to the server."
+      );
     }
   };
 
-  // -----------------------------------------
-  // Checkout
-  // -----------------------------------------
+  const handleUpdateQuantity = async (
+    productId,
+    newQuantity
+  ) => {
+    if (newQuantity <= 0) {
+      return;
+    }
+
+    const token = localStorage.getItem(
+      "access_token"
+    );
+
+    try {
+      const response = await fetch(
+        `${API_URL}/cart/update`,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            product_id: productId,
+            quantity: newQuantity,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(
+          data.detail ||
+            "Unable to update quantity."
+        );
+
+        return;
+      }
+
+      setCart(normalizeCart(data));
+    } catch (error) {
+      console.error(
+        "Update quantity error:",
+        error
+      );
+
+      alert(
+        "Unable to update cart."
+      );
+    }
+  };
+
+  const handleRemoveFromCart = async (
+    productId
+  ) => {
+    const token = localStorage.getItem(
+      "access_token"
+    );
+
+    try {
+      const response = await fetch(
+        `${API_URL}/cart/remove`,
+        {
+          method: "DELETE",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            product_id: productId,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(
+          data.detail ||
+            "Unable to remove product."
+        );
+
+        return;
+      }
+
+      setCart(normalizeCart(data));
+    } catch (error) {
+      console.error(
+        "Remove cart item error:",
+        error
+      );
+
+      alert(
+        "Unable to remove product from cart."
+      );
+    }
+  };
 
   const handleCheckout = async () => {
     if (!loggedIn) {
-      alert("Please login before checkout.");
+      alert(
+        "Please login before checkout."
+      );
+
       setShowLogin(true);
+
       return;
     }
 
-    if (cart.length === 0) {
-      alert("Your cart is empty.");
+    if (
+      !Array.isArray(cart) ||
+      cart.length === 0
+    ) {
+      alert(
+        "Your cart is empty."
+      );
+
       return;
     }
 
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem(
+      "access_token"
+    );
 
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/orders/checkout`, {
-        method: "POST",
+      const response = await fetch(
+        `${API_URL}/checkout`,
+        {
+          method: "POST",
 
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+          headers: {
+            Authorization: `Bearer ${token}`,
+
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("Checkout failed:", data);
+        alert(
+          data.detail ||
+            "Checkout failed."
+        );
 
-        alert(data.detail || "Checkout failed.");
         setLoading(false);
+
         return;
       }
 
-      console.log("Checkout successful:", data);
+      if (data.checkout_url) {
+        window.location.href =
+          data.checkout_url;
 
-      // Refresh cart from backend
-      await fetchCart();
+        return;
+      }
 
       alert(
-        `Order placed successfully! 🎉\n\n${
-          data.order_id
-            ? `Order ID: ${data.order_id}`
-            : "Thank you for shopping with SmartShop!"
-        }`
+        "Checkout created successfully."
       );
+
+      await fetchCart();
 
       setShowCart(false);
     } catch (error) {
-      console.error("Checkout error:", error);
+      console.error(
+        "Checkout error:",
+        error
+      );
 
-      alert("Unable to connect to the checkout server.");
+      alert(
+        "Unable to connect to the checkout server."
+      );
     }
 
     setLoading(false);
   };
 
-  // -----------------------------------------
-  // Calculate Cart
-  // -----------------------------------------
-
   const getProduct = (productId) => {
-    return products.find((product) => product.id === productId);
+    return products.find(
+      (product) =>
+        product.id === productId
+    );
   };
 
   const getCartTotal = () => {
-    return cart.reduce((total, item) => {
-      const product = getProduct(item.product_id);
-
-      if (!product) {
-        return total;
-      }
-
-      return total + Number(product.price) * item.quantity;
-    }, 0);
+    return cart.reduce(
+      (total, item) => {
+        return (
+          total +
+          Number(
+            item.item_total || 0
+          )
+        );
+      },
+      0
+    );
   };
-
-  // -----------------------------------------
-  // Cart Count
-  // -----------------------------------------
 
   const getCartCount = () => {
-    return cart.reduce((total, item) => {
-      return total + item.quantity;
-    }, 0);
+    return cart.reduce(
+      (total, item) => {
+        return (
+          total +
+          Number(
+            item.quantity || 0
+          )
+        );
+      },
+      0
+    );
   };
 
-  // -----------------------------------------
-  // Return UI
-  // -----------------------------------------
+  function PaymentSuccessPage() {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          background: "#f4f7fb",
+          padding: "30px",
+        }}
+      >
+        <div
+          style={{
+            background: "white",
+            padding: "50px",
+            borderRadius: "20px",
+            textAlign: "center",
+            maxWidth: "600px",
+            width: "100%",
+            boxShadow:
+              "0 10px 40px rgba(0,0,0,0.12)",
+          }}
+        >
+          <div
+            style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              background: "#22c55e",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "40px",
+              margin:
+                "0 auto 25px",
+            }}
+          >
+            ✓
+          </div>
+
+          <h1
+            style={{
+              color: "#16a34a",
+              fontSize: "42px",
+              marginBottom: "15px",
+            }}
+          >
+            Payment Successful!
+          </h1>
+
+          <p
+            style={{
+              fontSize: "18px",
+              color: "#374151",
+            }}
+          >
+            Your payment has been completed
+            successfully.
+          </p>
+
+          <p
+            style={{
+              fontSize: "16px",
+              color: "#16a34a",
+              fontWeight: "600",
+              marginTop: "20px",
+            }}
+          >
+            Your order has been processed.
+          </p>
+
+          {sessionId && (
+            <>
+              <p
+                style={{
+                  fontSize: "14px",
+                  color: "#6b7280",
+                  marginTop: "25px",
+                }}
+              >
+                Payment Session
+              </p>
+
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "#374151",
+                  wordBreak: "break-all",
+                  background: "#f3f4f6",
+                  padding: "12px",
+                  borderRadius: "8px",
+                }}
+              >
+                {sessionId}
+              </p>
+            </>
+          )}
+
+          <button
+            onClick={() => {
+              window.location.href =
+                "/";
+            }}
+            style={{
+              marginTop: "20px",
+              padding: "14px 30px",
+              border: "none",
+              borderRadius: "8px",
+              background: "#2563eb",
+              color: "white",
+              fontSize: "16px",
+              cursor: "pointer",
+            }}
+          >
+            Continue Shopping
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    pathname ===
+    "/payment-success"
+  ) {
+    return <PaymentSuccessPage />;
+  }
+
+  if (
+    pathname ===
+    "/payment-cancelled"
+  ) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          background: "#f4f7fb",
+          padding: "30px",
+        }}
+      >
+        <div
+          style={{
+            background: "white",
+            padding: "50px",
+            borderRadius: "20px",
+            textAlign: "center",
+            maxWidth: "600px",
+            width: "100%",
+            boxShadow:
+              "0 10px 40px rgba(0,0,0,0.12)",
+          }}
+        >
+          <h1
+            style={{
+              color: "#dc2626",
+            }}
+          >
+            Payment Cancelled
+          </h1>
+
+          <p
+            style={{
+              fontSize: "18px",
+              color: "#374151",
+            }}
+          >
+            Your Stripe payment was
+            cancelled.
+          </p>
+
+          <button
+            onClick={() => {
+              window.location.href =
+                "/";
+            }}
+            style={{
+              marginTop: "20px",
+              padding: "14px 30px",
+              border: "none",
+              borderRadius: "8px",
+              background: "#2563eb",
+              color: "white",
+              fontSize: "16px",
+              cursor: "pointer",
+            }}
+          >
+            Return to Shop
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
-
-      {/* ----------------------------------------- */}
-      {/* Navbar */}
-      {/* ----------------------------------------- */}
-
       <nav className="navbar">
-
         <div
           className="logo"
           onClick={() => {
             setShowCart(false);
-            window.scrollTo(0, 0);
+
+            window.scrollTo(
+              0,
+              0
+            );
           }}
-          style={{ cursor: "pointer" }}
+          style={{
+            cursor: "pointer",
+          }}
         >
           SmartShop
         </div>
 
         <div className="nav-links">
-
           <a
             href="#"
-            onClick={() => setShowCart(false)}
+            onClick={() =>
+              setShowCart(false)
+            }
           >
             Home
           </a>
 
           <a
             href="#products"
-            onClick={() => setShowCart(false)}
+            onClick={() =>
+              setShowCart(false)
+            }
           >
             Products
           </a>
 
           {!loggedIn ? (
-
             <button
               className="nav-button"
-              onClick={() => setShowLogin(true)}
+              onClick={() =>
+                setShowLogin(true)
+              }
             >
               Login
             </button>
-
           ) : (
-
             <>
               <span className="welcome-user">
-                Hi, {user?.email}
+                Hi, {user?.name}
               </span>
 
               <button
                 className="nav-button"
-                onClick={handleLogout}
+                onClick={
+                  handleLogout
+                }
               >
                 Logout
               </button>
             </>
-
           )}
-
-          <a href="#">
-            Register
-          </a>
 
           <button
             className="cart-button"
             onClick={() => {
               if (!loggedIn) {
-                alert("Please login to view your cart.");
+                alert(
+                  "Please login to view your cart."
+                );
+
                 setShowLogin(true);
+
                 return;
               }
 
@@ -418,343 +822,395 @@ function App() {
               fetchCart();
             }}
           >
-            🛒 Cart ({getCartCount()})
+            🛒 Cart (
+            {getCartCount()})
           </button>
-
         </div>
-
       </nav>
 
+      {showLogin &&
+        !loggedIn && (
+          <section className="login-section">
+            <div className="login-card">
+              <h2>
+                Login to SmartShop
+              </h2>
 
-      {/* ----------------------------------------- */}
-      {/* Login */}
-      {/* ----------------------------------------- */}
-
-      {showLogin && !loggedIn && (
-
-        <section className="login-section">
-
-          <div className="login-card">
-
-            <h2>
-              Login to SmartShop
-            </h2>
-
-            <form onSubmit={handleLogin}>
-
-              <label>
-                Email
-              </label>
-
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(event) =>
-                  setEmail(event.target.value)
+              <form
+                onSubmit={
+                  handleLogin
                 }
-                required
-              />
+              >
+                <label>
+                  Email
+                </label>
 
-              <label>
-                Password
-              </label>
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(
+                    event
+                  ) =>
+                    setEmail(
+                      event.target.value
+                    )
+                  }
+                  required
+                />
 
-              <input
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(event) =>
-                  setPassword(event.target.value)
-                }
-                required
-              />
+                <label>
+                  Password
+                </label>
 
-              {loginError && (
-                <p className="login-error">
-                  {loginError}
-                </p>
-              )}
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(
+                    event
+                  ) =>
+                    setPassword(
+                      event.target.value
+                    )
+                  }
+                  required
+                />
+
+                {loginError && (
+                  <p className="login-error">
+                    {loginError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  className="login-submit"
+                  disabled={
+                    loading
+                  }
+                >
+                  {loading
+                    ? "Logging in..."
+                    : "Login"}
+                </button>
+              </form>
 
               <button
-                type="submit"
-                className="login-submit"
-                disabled={loading}
+                className="cancel-login"
+                onClick={() => {
+                  setShowLogin(
+                    false
+                  );
+
+                  setLoginError(
+                    ""
+                  );
+                }}
               >
-                {loading ? "Logging in..." : "Login"}
+                Cancel
               </button>
-
-            </form>
-
-            <button
-              className="cancel-login"
-              onClick={() => {
-                setShowLogin(false);
-                setLoginError("");
-              }}
-            >
-              Cancel
-            </button>
-
-          </div>
-
-        </section>
-
-      )}
-
-
-      {/* ----------------------------------------- */}
-      {/* Cart Page */}
-      {/* ----------------------------------------- */}
+            </div>
+          </section>
+        )}
 
       {showCart ? (
-
         <section className="cart-page">
-
           <h1>
             🛒 Your Cart
           </h1>
 
-          {cart.length === 0 ? (
-
+          {!Array.isArray(
+            cart
+          ) ||
+          cart.length === 0 ? (
             <div className="empty-cart">
-
               <h2>
                 Your cart is empty
               </h2>
 
               <p>
-                Add some products to your cart.
+                Add some products to
+                your cart.
               </p>
 
               <button
                 className="shop-button"
-                onClick={() => setShowCart(false)}
+                onClick={() =>
+                  setShowCart(false)
+                }
               >
                 Continue Shopping
               </button>
-
             </div>
-
           ) : (
-
-            <>
-
-              {/* Cart Items */}
-
+            <div className="cart-layout">
               <div className="cart-items">
+                {cart.map(
+                  (item) => {
+                    const product =
+                      getProduct(
+                        item.product_id
+                      );
 
-                {cart.map((item) => {
+                    return (
+                      <div
+                        className="cart-item"
+                        key={
+                          item.id
+                        }
+                      >
+                        <img
+                          src={
+                            product?.images ||
+                            "https://via.placeholder.com/150"
+                          }
+                          alt={
+                            item.product_name ||
+                            product?.name
+                          }
+                          className="cart-image"
+                        />
 
-                  const product = getProduct(item.product_id);
+                        <div className="cart-item-details">
+                          <h3>
+                            {item.product_name ||
+                              product?.name}
+                          </h3>
 
-                  if (!product) {
-                    return null;
-                  }
+                          <p>
+                            {product?.description ||
+                              "Product added to your cart."}
+                          </p>
 
-                  const itemTotal =
-                    Number(product.price) * item.quantity;
+                          <p className="cart-price">
+                            ₹{item.price}
+                          </p>
 
-                  return (
+                          <div className="quantity-controls">
+                            <button
+                              onClick={() =>
+                                handleUpdateQuantity(
+                                  item.product_id,
+                                  item.quantity -
+                                    1
+                                )
+                              }
+                              disabled={
+                                item.quantity <=
+                                1
+                              }
+                            >
+                              −
+                            </button>
 
-                    <div
-                      className="cart-item"
-                      key={item.id}
-                    >
+                            <span>
+                              {
+                                item.quantity
+                              }
+                            </span>
 
-                      <img
-                        src={product.images}
-                        alt={product.name}
-                        className="cart-image"
-                      />
+                            <button
+                              onClick={() =>
+                                handleUpdateQuantity(
+                                  item.product_id,
+                                  item.quantity +
+                                    1
+                                )
+                              }
+                              disabled={
+                                item.quantity >=
+                                item.stock
+                              }
+                            >
+                              +
+                            </button>
+                          </div>
 
-                      <div className="cart-details">
+                          <button
+                            className="remove-button"
+                            onClick={() =>
+                              handleRemoveFromCart(
+                                item.product_id
+                              )
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
 
-                        <h2>
-                          {product.name}
-                        </h2>
-
-                        <p>
-                          {product.description}
-                        </p>
-
-                        <p>
-                          Price: ₹{product.price}
-                        </p>
-
-                        <p>
-                          Quantity: {item.quantity}
-                        </p>
-
-                        <h3>
-                          Item Total: ₹{itemTotal}
-                        </h3>
-
+                        <div className="cart-item-total">
+                          ₹
+                          {Number(
+                            item.item_total
+                          ).toFixed(2)}
+                        </div>
                       </div>
-
-                    </div>
-
-                  );
-
-                })}
-
+                    );
+                  }
+                )}
               </div>
 
-
-              {/* Cart Summary */}
-
               <div className="cart-summary">
-
                 <h2>
-                  Cart Summary
+                  Order Summary
                 </h2>
 
                 <p>
-                  Total Items: {getCartCount()}
+                  Total Items:{" "}
+                  {getCartCount()}
                 </p>
 
-                <h2>
-                  Total: ₹{getCartTotal()}
-                </h2>
+                <div className="summary-total">
+                  <span>
+                    Total
+                  </span>
+
+                  <strong>
+                    ₹
+                    {getCartTotal().toFixed(
+                      2
+                    )}
+                  </strong>
+                </div>
 
                 <button
                   className="checkout-button"
-                  onClick={handleCheckout}
-                  disabled={loading}
+                  onClick={
+                    handleCheckout
+                  }
+                  disabled={
+                    loading
+                  }
                 >
                   {loading
                     ? "Processing..."
                     : "Proceed to Checkout"}
                 </button>
 
+                <button
+                  className="continue-shopping"
+                  onClick={() =>
+                    setShowCart(false)
+                  }
+                >
+                  Continue Shopping
+                </button>
               </div>
-
-            </>
-
+            </div>
           )}
-
         </section>
-
       ) : (
-
-        /* ----------------------------------------- */
-        /* Home Page */
-        /* ----------------------------------------- */
-
         <>
-
-          {/* Hero */}
-
           <section className="hero">
-
             <div>
-
               <h1>
                 Welcome to SmartShop
               </h1>
 
               <p>
-                Discover amazing products at great prices.
+                Discover amazing
+                products at great
+                prices.
               </p>
 
               <button
                 className="shop-button"
                 onClick={() => {
                   document
-                    .getElementById("products")
+                    .getElementById(
+                      "products"
+                    )
                     ?.scrollIntoView({
-                      behavior: "smooth",
+                      behavior:
+                        "smooth",
                     });
                 }}
               >
                 Shop Now
               </button>
-
             </div>
-
           </section>
-
-
-          {/* Products */}
 
           <section
             className="products-section"
             id="products"
           >
-
             <h2>
               Our Products
             </h2>
 
             <div className="product-grid">
-
-              {products.map((product) => (
-
-                <div
-                  className="product-card"
-                  key={product.id}
-                >
-
-                  <img
-                    src={product.images}
-                    alt={product.name}
-                    className="product-image"
-                  />
-
-                  <div className="product-details">
-
-                    <h3>
-                      {product.name}
-                    </h3>
-
-                    <p className="description">
-                      {product.description}
-                    </p>
-
-                    <p className="price">
-                      ₹{product.price}
-                    </p>
-
-                    <p className="stock">
-                      Stock: {product.stock}
-                    </p>
-
-                    <button
-                      className="add-cart"
-                      onClick={() =>
-                        handleAddToCart(product.id)
+              {products.map(
+                (product) => (
+                  <div
+                    className="product-card"
+                    key={
+                      product.id
+                    }
+                  >
+                    <img
+                      src={
+                        product.images
                       }
-                    >
-                      Add to Cart
-                    </button>
+                      alt={
+                        product.name
+                      }
+                      className="product-image"
+                    />
 
+                    <div className="product-details">
+                      <h3>
+                        {
+                          product.name
+                        }
+                      </h3>
+
+                      <p className="description">
+                        {
+                          product.description
+                        }
+                      </p>
+
+                      <p className="price">
+                        ₹
+                        {
+                          product.price
+                        }
+                      </p>
+
+                      <p className="stock">
+                        Stock:{" "}
+                        {
+                          product.stock
+                        }
+                      </p>
+
+                      <button
+                        className="add-cart"
+                        onClick={() =>
+                          handleAddToCart(
+                            product.id
+                          )
+                        }
+                      >
+                        Add to Cart
+                      </button>
+                    </div>
                   </div>
-
-                </div>
-
-              ))}
-
+                )
+              )}
             </div>
-
           </section>
-
         </>
-
       )}
 
-
-      {/* ----------------------------------------- */}
-      {/* Footer */}
-      {/* ----------------------------------------- */}
-
       <footer>
-
         <p>
-          © 2026 SmartShop. All rights reserved.
+          © 2026 SmartShop.
+          All rights reserved.
         </p>
-
       </footer>
-
     </div>
   );
 }
