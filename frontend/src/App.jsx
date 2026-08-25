@@ -1,39 +1,372 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import "./App.css";
+
 
 const API_URL = "http://127.0.0.1:8000";
 
+
+function PaymentSuccessPage({ sessionId }) {
+  const [paymentStatus, setPaymentStatus] =
+    useState("confirming");
+
+  const [paymentError, setPaymentError] =
+    useState("");
+
+  const confirmationStarted = useRef(false);
+
+
+  useEffect(() => {
+    if (confirmationStarted.current) {
+      return;
+    }
+
+    confirmationStarted.current = true;
+
+
+    const confirmPayment = async () => {
+      if (!sessionId) {
+        setPaymentStatus("error");
+
+        setPaymentError(
+          "Payment session ID was not found."
+        );
+
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_URL}/checkout/confirm/${sessionId}`,
+          {
+            method: "POST",
+          }
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+              "Unable to confirm payment."
+          );
+        }
+
+        setPaymentStatus("success");
+
+      } catch (error) {
+        console.error(
+          "Payment confirmation error:",
+          error
+        );
+
+        setPaymentStatus("error");
+
+        setPaymentError(
+          error.message ||
+            "Unable to confirm payment."
+        );
+      }
+    };
+
+
+    confirmPayment();
+
+  }, [sessionId]);
+
+
+  if (paymentStatus === "confirming") {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          background: "#f4f7fb",
+          padding: "30px",
+        }}
+      >
+        <div
+          style={{
+            background: "white",
+            padding: "50px",
+            borderRadius: "20px",
+            textAlign: "center",
+            maxWidth: "600px",
+            width: "100%",
+            boxShadow:
+              "0 10px 40px rgba(0,0,0,0.12)",
+          }}
+        >
+          <h1>
+            Confirming Payment...
+          </h1>
+
+          <p>
+            Please wait while your order
+            is being processed.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+
+  if (paymentStatus === "error") {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          background: "#f4f7fb",
+          padding: "30px",
+        }}
+      >
+        <div
+          style={{
+            background: "white",
+            padding: "50px",
+            borderRadius: "20px",
+            textAlign: "center",
+            maxWidth: "600px",
+            width: "100%",
+            boxShadow:
+              "0 10px 40px rgba(0,0,0,0.12)",
+          }}
+        >
+          <h1
+            style={{
+              color: "#dc2626",
+            }}
+          >
+            Payment Confirmation Failed
+          </h1>
+
+          <p>
+            {paymentError}
+          </p>
+
+          <button
+            onClick={() => {
+              window.location.href =
+                "/";
+            }}
+            style={{
+              marginTop: "20px",
+              padding: "14px 30px",
+              border: "none",
+              borderRadius: "8px",
+              background: "#2563eb",
+              color: "white",
+              fontSize: "16px",
+              cursor: "pointer",
+            }}
+          >
+            Return to Shop
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        background: "#f4f7fb",
+        padding: "30px",
+      }}
+    >
+      <div
+        style={{
+          background: "white",
+          padding: "50px",
+          borderRadius: "20px",
+          textAlign: "center",
+          maxWidth: "600px",
+          width: "100%",
+          boxShadow:
+            "0 10px 40px rgba(0,0,0,0.12)",
+        }}
+      >
+        <div
+          style={{
+            width: "80px",
+            height: "80px",
+            borderRadius: "50%",
+            background: "#22c55e",
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "40px",
+            margin:
+              "0 auto 25px",
+          }}
+        >
+          ✓
+        </div>
+
+        <h1
+          style={{
+            color: "#16a34a",
+            fontSize: "42px",
+            marginBottom: "15px",
+          }}
+        >
+          Payment Successful!
+        </h1>
+
+        <p
+          style={{
+            fontSize: "18px",
+            color: "#374151",
+          }}
+        >
+          Your payment has been completed
+          successfully.
+        </p>
+
+        <p
+          style={{
+            fontSize: "16px",
+            color: "#16a34a",
+            fontWeight: "600",
+            marginTop: "20px",
+          }}
+        >
+          Your order has been processed.
+          Your cart has been cleared and
+          product stock has been updated.
+        </p>
+
+        {sessionId && (
+          <>
+            <p
+              style={{
+                fontSize: "14px",
+                color: "#6b7280",
+                marginTop: "25px",
+              }}
+            >
+              Payment Session
+            </p>
+
+            <p
+              style={{
+                fontSize: "13px",
+                color: "#374151",
+                wordBreak: "break-all",
+                background: "#f3f4f6",
+                padding: "12px",
+                borderRadius: "8px",
+              }}
+            >
+              {sessionId}
+            </p>
+          </>
+        )}
+
+        <button
+          onClick={() => {
+            window.location.href =
+              "/";
+          }}
+          style={{
+            marginTop: "20px",
+            padding: "14px 30px",
+            border: "none",
+            borderRadius: "8px",
+            background: "#2563eb",
+            color: "white",
+            fontSize: "16px",
+            cursor: "pointer",
+          }}
+        >
+          Continue Shopping
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
-  const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
+  const [products, setProducts] =
+    useState([]);
 
-  const [showLogin, setShowLogin] = useState(false);
-  const [showCart, setShowCart] = useState(false);
+  const [cart, setCart] =
+    useState([]);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [showLogin, setShowLogin] =
+    useState(false);
 
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [user, setUser] = useState(null);
+  const [showCart, setShowCart] =
+    useState(false);
 
-  const [loginError, setLoginError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] =
+    useState("");
 
-  const pathname = window.location.pathname;
-  const searchParams = new URLSearchParams(window.location.search);
-  const sessionId = searchParams.get("session_id");
+  const [password, setPassword] =
+    useState("");
+
+  const [loggedIn, setLoggedIn] =
+    useState(false);
+
+  const [user, setUser] =
+    useState(null);
+
+  const [loginError, setLoginError] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
+
+  const pathname =
+    window.location.pathname;
+
+  const searchParams =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  const sessionId =
+    searchParams.get("session_id");
+
 
   const normalizeCart = (data) => {
-    if (Array.isArray(data)) return data;
+    if (Array.isArray(data)) {
+      return data;
+    }
 
-    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(data?.items)) {
+      return data.items;
+    }
 
-    if (Array.isArray(data?.cart)) return data.cart;
+    if (Array.isArray(data?.cart)) {
+      return data.cart;
+    }
 
-    if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data?.data)) {
+      return data.data;
+    }
 
     return [];
   };
+
 
   const fetchProducts = async () => {
     try {
@@ -47,11 +380,15 @@ function App() {
         );
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       setProducts(
-        Array.isArray(data) ? data : []
+        Array.isArray(data)
+          ? data
+          : []
       );
+
     } catch (error) {
       console.error(
         "Error fetching products:",
@@ -62,10 +399,12 @@ function App() {
     }
   };
 
+
   const fetchCart = async () => {
-    const token = localStorage.getItem(
-      "access_token"
-    );
+    const token =
+      localStorage.getItem(
+        "access_token"
+      );
 
     if (!token) {
       setCart([]);
@@ -77,7 +416,8 @@ function App() {
         `${API_URL}/cart`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization:
+              `Bearer ${token}`,
           },
         }
       );
@@ -88,9 +428,13 @@ function App() {
         );
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
-      setCart(normalizeCart(data));
+      setCart(
+        normalizeCart(data)
+      );
+
     } catch (error) {
       console.error(
         "Error fetching cart:",
@@ -101,14 +445,17 @@ function App() {
     }
   };
 
+
   useEffect(() => {
     fetchProducts();
   }, []);
 
+
   useEffect(() => {
-    const token = localStorage.getItem(
-      "access_token"
-    );
+    const token =
+      localStorage.getItem(
+        "access_token"
+      );
 
     if (!token) {
       return;
@@ -116,7 +463,8 @@ function App() {
 
     fetch(`${API_URL}/auth/me`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization:
+          `Bearer ${token}`,
       },
     })
       .then((response) => {
@@ -130,6 +478,7 @@ function App() {
       })
       .then((data) => {
         setUser(data);
+
         setLoggedIn(true);
 
         fetchCart();
@@ -144,15 +493,22 @@ function App() {
         );
 
         setUser(null);
+
         setLoggedIn(false);
+
         setCart([]);
       });
+
   }, []);
 
-  const handleLogin = async (event) => {
+
+  const handleLogin = async (
+    event
+  ) => {
     event.preventDefault();
 
     setLoginError("");
+
     setLoading(true);
 
     try {
@@ -174,7 +530,8 @@ function App() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setLoginError(
@@ -183,6 +540,7 @@ function App() {
         );
 
         setLoading(false);
+
         return;
       }
 
@@ -196,14 +554,16 @@ function App() {
         data.refresh_token
       );
 
-      const userResponse = await fetch(
-        `${API_URL}/auth/me`,
-        {
-          headers: {
-            Authorization: `Bearer ${data.access_token}`,
-          },
-        }
-      );
+      const userResponse =
+        await fetch(
+          `${API_URL}/auth/me`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${data.access_token}`,
+            },
+          }
+        );
 
       const userData =
         await userResponse.json();
@@ -219,6 +579,7 @@ function App() {
       setPassword("");
 
       await fetchCart();
+
     } catch (error) {
       console.error(
         "Login error:",
@@ -232,6 +593,7 @@ function App() {
 
     setLoading(false);
   };
+
 
   const handleLogout = () => {
     localStorage.removeItem(
@@ -251,6 +613,7 @@ function App() {
     setShowCart(false);
   };
 
+
   const handleAddToCart = async (
     productId
   ) => {
@@ -264,9 +627,27 @@ function App() {
       return;
     }
 
-    const token = localStorage.getItem(
-      "access_token"
-    );
+    const product =
+      products.find(
+        (item) =>
+          item.id === productId
+      );
+
+    if (
+      !product ||
+      Number(product.stock) <= 0
+    ) {
+      alert(
+        "This product is currently out of stock."
+      );
+
+      return;
+    }
+
+    const token =
+      localStorage.getItem(
+        "access_token"
+      );
 
     try {
       const response = await fetch(
@@ -278,7 +659,8 @@ function App() {
             "Content-Type":
               "application/json",
 
-            Authorization: `Bearer ${token}`,
+            Authorization:
+              `Bearer ${token}`,
           },
 
           body: JSON.stringify({
@@ -288,7 +670,8 @@ function App() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         alert(
@@ -299,11 +682,14 @@ function App() {
         return;
       }
 
-      setCart(normalizeCart(data));
+      setCart(
+        normalizeCart(data)
+      );
 
       alert(
         "Product added to cart successfully!"
       );
+
     } catch (error) {
       console.error(
         "Add to cart error:",
@@ -316,111 +702,126 @@ function App() {
     }
   };
 
-  const handleUpdateQuantity = async (
-    productId,
-    newQuantity
-  ) => {
-    if (newQuantity <= 0) {
-      return;
-    }
 
-    const token = localStorage.getItem(
-      "access_token"
-    );
-
-    try {
-      const response = await fetch(
-        `${API_URL}/cart/update`,
-        {
-          method: "PUT",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Authorization: `Bearer ${token}`,
-          },
-
-          body: JSON.stringify({
-            product_id: productId,
-            quantity: newQuantity,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(
-          data.detail ||
-            "Unable to update quantity."
-        );
-
+  const handleUpdateQuantity =
+    async (
+      productId,
+      newQuantity
+    ) => {
+      if (newQuantity <= 0) {
         return;
       }
 
-      setCart(normalizeCart(data));
-    } catch (error) {
-      console.error(
-        "Update quantity error:",
-        error
-      );
-
-      alert(
-        "Unable to update cart."
-      );
-    }
-  };
-
-  const handleRemoveFromCart = async (
-    productId
-  ) => {
-    const token = localStorage.getItem(
-      "access_token"
-    );
-
-    try {
-      const response = await fetch(
-        `${API_URL}/cart/remove`,
-        {
-          method: "DELETE",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Authorization: `Bearer ${token}`,
-          },
-
-          body: JSON.stringify({
-            product_id: productId,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(
-          data.detail ||
-            "Unable to remove product."
+      const token =
+        localStorage.getItem(
+          "access_token"
         );
 
-        return;
+      try {
+        const response = await fetch(
+          `${API_URL}/cart/update`,
+          {
+            method: "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              product_id: productId,
+              quantity: newQuantity,
+            }),
+          }
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          alert(
+            data.detail ||
+              "Unable to update quantity."
+          );
+
+          return;
+        }
+
+        setCart(
+          normalizeCart(data)
+        );
+
+      } catch (error) {
+        console.error(
+          "Update quantity error:",
+          error
+        );
+
+        alert(
+          "Unable to update cart."
+        );
       }
+    };
 
-      setCart(normalizeCart(data));
-    } catch (error) {
-      console.error(
-        "Remove cart item error:",
-        error
-      );
 
-      alert(
-        "Unable to remove product from cart."
-      );
-    }
-  };
+  const handleRemoveFromCart =
+    async (productId) => {
+      const token =
+        localStorage.getItem(
+          "access_token"
+        );
+
+      try {
+        const response = await fetch(
+          `${API_URL}/cart/remove`,
+          {
+            method: "DELETE",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              product_id: productId,
+            }),
+          }
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          alert(
+            data.detail ||
+              "Unable to remove product."
+          );
+
+          return;
+        }
+
+        setCart(
+          normalizeCart(data)
+        );
+
+      } catch (error) {
+        console.error(
+          "Remove cart item error:",
+          error
+        );
+
+        alert(
+          "Unable to remove product from cart."
+        );
+      }
+    };
+
 
   const handleCheckout = async () => {
     if (!loggedIn) {
@@ -444,9 +845,10 @@ function App() {
       return;
     }
 
-    const token = localStorage.getItem(
-      "access_token"
-    );
+    const token =
+      localStorage.getItem(
+        "access_token"
+      );
 
     setLoading(true);
 
@@ -457,7 +859,8 @@ function App() {
           method: "POST",
 
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization:
+              `Bearer ${token}`,
 
             "Content-Type":
               "application/json",
@@ -465,7 +868,8 @@ function App() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         alert(
@@ -492,6 +896,7 @@ function App() {
       await fetchCart();
 
       setShowCart(false);
+
     } catch (error) {
       console.error(
         "Checkout error:",
@@ -506,12 +911,16 @@ function App() {
     setLoading(false);
   };
 
-  const getProduct = (productId) => {
+
+  const getProduct = (
+    productId
+  ) => {
     return products.find(
       (product) =>
         product.id === productId
     );
   };
+
 
   const getCartTotal = () => {
     return cart.reduce(
@@ -527,6 +936,7 @@ function App() {
     );
   };
 
+
   const getCartCount = () => {
     return cart.reduce(
       (total, item) => {
@@ -541,135 +951,18 @@ function App() {
     );
   };
 
-  function PaymentSuccessPage() {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          background: "#f4f7fb",
-          padding: "30px",
-        }}
-      >
-        <div
-          style={{
-            background: "white",
-            padding: "50px",
-            borderRadius: "20px",
-            textAlign: "center",
-            maxWidth: "600px",
-            width: "100%",
-            boxShadow:
-              "0 10px 40px rgba(0,0,0,0.12)",
-          }}
-        >
-          <div
-            style={{
-              width: "80px",
-              height: "80px",
-              borderRadius: "50%",
-              background: "#22c55e",
-              color: "white",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "40px",
-              margin:
-                "0 auto 25px",
-            }}
-          >
-            ✓
-          </div>
-
-          <h1
-            style={{
-              color: "#16a34a",
-              fontSize: "42px",
-              marginBottom: "15px",
-            }}
-          >
-            Payment Successful!
-          </h1>
-
-          <p
-            style={{
-              fontSize: "18px",
-              color: "#374151",
-            }}
-          >
-            Your payment has been completed
-            successfully.
-          </p>
-
-          <p
-            style={{
-              fontSize: "16px",
-              color: "#16a34a",
-              fontWeight: "600",
-              marginTop: "20px",
-            }}
-          >
-            Your order has been processed.
-          </p>
-
-          {sessionId && (
-            <>
-              <p
-                style={{
-                  fontSize: "14px",
-                  color: "#6b7280",
-                  marginTop: "25px",
-                }}
-              >
-                Payment Session
-              </p>
-
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "#374151",
-                  wordBreak: "break-all",
-                  background: "#f3f4f6",
-                  padding: "12px",
-                  borderRadius: "8px",
-                }}
-              >
-                {sessionId}
-              </p>
-            </>
-          )}
-
-          <button
-            onClick={() => {
-              window.location.href =
-                "/";
-            }}
-            style={{
-              marginTop: "20px",
-              padding: "14px 30px",
-              border: "none",
-              borderRadius: "8px",
-              background: "#2563eb",
-              color: "white",
-              fontSize: "16px",
-              cursor: "pointer",
-            }}
-          >
-            Continue Shopping
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (
     pathname ===
     "/payment-success"
   ) {
-    return <PaymentSuccessPage />;
+    return (
+      <PaymentSuccessPage
+        sessionId={sessionId}
+      />
+    );
   }
+
 
   if (
     pathname ===
@@ -739,9 +1032,12 @@ function App() {
     );
   }
 
+
   return (
     <div className="app">
+
       <nav className="navbar">
+
         <div
           className="logo"
           onClick={() => {
@@ -759,7 +1055,9 @@ function App() {
           SmartShop
         </div>
 
+
         <div className="nav-links">
+
           <a
             href="#"
             onClick={() =>
@@ -769,6 +1067,7 @@ function App() {
             Home
           </a>
 
+
           <a
             href="#products"
             onClick={() =>
@@ -777,6 +1076,7 @@ function App() {
           >
             Products
           </a>
+
 
           {!loggedIn ? (
             <button
@@ -804,6 +1104,7 @@ function App() {
             </>
           )}
 
+
           <button
             className="cart-button"
             onClick={() => {
@@ -825,22 +1126,30 @@ function App() {
             🛒 Cart (
             {getCartCount()})
           </button>
+
         </div>
+
       </nav>
+
 
       {showLogin &&
         !loggedIn && (
+
           <section className="login-section">
+
             <div className="login-card">
+
               <h2>
                 Login to SmartShop
               </h2>
+
 
               <form
                 onSubmit={
                   handleLogin
                 }
               >
+
                 <label>
                   Email
                 </label>
@@ -858,6 +1167,7 @@ function App() {
                   }
                   required
                 />
+
 
                 <label>
                   Password
@@ -877,11 +1187,13 @@ function App() {
                   required
                 />
 
+
                 {loginError && (
                   <p className="login-error">
                     {loginError}
                   </p>
                 )}
+
 
                 <button
                   type="submit"
@@ -894,7 +1206,9 @@ function App() {
                     ? "Logging in..."
                     : "Login"}
                 </button>
+
               </form>
+
 
               <button
                 className="cancel-login"
@@ -910,21 +1224,29 @@ function App() {
               >
                 Cancel
               </button>
+
             </div>
+
           </section>
         )}
 
+
       {showCart ? (
+
         <section className="cart-page">
+
           <h1>
             🛒 Your Cart
           </h1>
+
 
           {!Array.isArray(
             cart
           ) ||
           cart.length === 0 ? (
+
             <div className="empty-cart">
+
               <h2>
                 Your cart is empty
               </h2>
@@ -942,24 +1264,30 @@ function App() {
               >
                 Continue Shopping
               </button>
+
             </div>
+
           ) : (
+
             <div className="cart-layout">
+
               <div className="cart-items">
+
                 {cart.map(
                   (item) => {
+
                     const product =
                       getProduct(
                         item.product_id
                       );
 
                     return (
+
                       <div
                         className="cart-item"
-                        key={
-                          item.id
-                        }
+                        key={item.id}
                       >
+
                         <img
                           src={
                             product?.images ||
@@ -972,7 +1300,9 @@ function App() {
                           className="cart-image"
                         />
 
+
                         <div className="cart-item-details">
+
                           <h3>
                             {item.product_name ||
                               product?.name}
@@ -987,7 +1317,9 @@ function App() {
                             ₹{item.price}
                           </p>
 
+
                           <div className="quantity-controls">
+
                             <button
                               onClick={() =>
                                 handleUpdateQuantity(
@@ -1004,11 +1336,11 @@ function App() {
                               −
                             </button>
 
+
                             <span>
-                              {
-                                item.quantity
-                              }
+                              {item.quantity}
                             </span>
+
 
                             <button
                               onClick={() =>
@@ -1020,12 +1352,18 @@ function App() {
                               }
                               disabled={
                                 item.quantity >=
-                                item.stock
+                                (
+                                  product?.stock ||
+                                  item.stock ||
+                                  0
+                                )
                               }
                             >
                               +
                             </button>
+
                           </div>
+
 
                           <button
                             className="remove-button"
@@ -1037,7 +1375,9 @@ function App() {
                           >
                             Delete
                           </button>
+
                         </div>
+
 
                         <div className="cart-item-total">
                           ₹
@@ -1045,13 +1385,17 @@ function App() {
                             item.item_total
                           ).toFixed(2)}
                         </div>
+
                       </div>
                     );
                   }
                 )}
+
               </div>
 
+
               <div className="cart-summary">
+
                 <h2>
                   Order Summary
                 </h2>
@@ -1061,7 +1405,9 @@ function App() {
                   {getCartCount()}
                 </p>
 
+
                 <div className="summary-total">
+
                   <span>
                     Total
                   </span>
@@ -1072,7 +1418,9 @@ function App() {
                       2
                     )}
                   </strong>
+
                 </div>
+
 
                 <button
                   className="checkout-button"
@@ -1088,6 +1436,7 @@ function App() {
                     : "Proceed to Checkout"}
                 </button>
 
+
                 <button
                   className="continue-shopping"
                   onClick={() =>
@@ -1096,14 +1445,22 @@ function App() {
                 >
                   Continue Shopping
                 </button>
+
               </div>
+
             </div>
           )}
+
         </section>
+
       ) : (
+
         <>
+
           <section className="hero">
+
             <div>
+
               <h1>
                 Welcome to SmartShop
               </h1>
@@ -1129,26 +1486,32 @@ function App() {
               >
                 Shop Now
               </button>
+
             </div>
+
           </section>
+
 
           <section
             className="products-section"
             id="products"
           >
+
             <h2>
               Our Products
             </h2>
 
+
             <div className="product-grid">
+
               {products.map(
                 (product) => (
+
                   <div
                     className="product-card"
-                    key={
-                      product.id
-                    }
+                    key={product.id}
                   >
+
                     <img
                       src={
                         product.images
@@ -1159,12 +1522,13 @@ function App() {
                       className="product-image"
                     />
 
+
                     <div className="product-details">
+
                       <h3>
-                        {
-                          product.name
-                        }
+                        {product.name}
                       </h3>
+
 
                       <p className="description">
                         {
@@ -1172,19 +1536,35 @@ function App() {
                         }
                       </p>
 
+
                       <p className="price">
-                        ₹
-                        {
-                          product.price
-                        }
+                        ₹{product.price}
                       </p>
 
-                      <p className="stock">
-                        Stock:{" "}
-                        {
-                          product.stock
-                        }
-                      </p>
+
+                      {Number(
+                        product.stock
+                      ) <= 0 ? (
+
+                        <p
+                          className="stock"
+                          style={{
+                            color: "#dc2626",
+                            fontWeight: "700",
+                          }}
+                        >
+                          Out of Stock
+                        </p>
+
+                      ) : (
+
+                        <p className="stock">
+                          Stock:{" "}
+                          {product.stock}
+                        </p>
+
+                      )}
+
 
                       <button
                         className="add-cart"
@@ -1193,17 +1573,47 @@ function App() {
                             product.id
                           )
                         }
+                        disabled={
+                          Number(
+                            product.stock
+                          ) <= 0
+                        }
+                        style={{
+                          opacity:
+                            Number(
+                              product.stock
+                            ) <= 0
+                              ? 0.6
+                              : 1,
+
+                          cursor:
+                            Number(
+                              product.stock
+                            ) <= 0
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
                       >
-                        Add to Cart
+                        {Number(
+                          product.stock
+                        ) <= 0
+                          ? "Out of Stock"
+                          : "Add to Cart"}
                       </button>
+
                     </div>
+
                   </div>
                 )
               )}
+
             </div>
+
           </section>
+
         </>
       )}
+
 
       <footer>
         <p>
@@ -1211,8 +1621,10 @@ function App() {
           All rights reserved.
         </p>
       </footer>
+
     </div>
   );
 }
+
 
 export default App;
