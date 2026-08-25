@@ -21,3 +21,11 @@ class OrderResponse(BaseModel):
     items: list[OrderItemResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================
+# UPDATE ORDER STATUS
+# ============================================================
+
+class OrderStatusUpdate(BaseModel):
+    status: str

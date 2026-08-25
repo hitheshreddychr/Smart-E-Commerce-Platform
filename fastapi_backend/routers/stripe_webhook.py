@@ -7,9 +7,11 @@ from sqlalchemy.orm import Session
 
 from database.connection import SessionLocal
 from models.cart import Cart
-from models.order import Order, OrderItem
+from models.order import Order
 from models.payment import Payment
-from models.product import Product
+from models.user import User
+from utils.email_service import send_email
+from utils.notification_service import create_notification
 
 
 load_dotenv()
@@ -53,6 +55,45 @@ def convert_stripe_object(data):
         return data
 
     return {}
+
+
+def get_payment(
+    db: Session,
+    order_id: int,
+    payment_id: str | None = None
+):
+    if payment_id:
+        payment = (
+            db.query(Payment)
+            .filter(
+                Payment.id == int(payment_id)
+            )
+            .first()
+        )
+
+        if payment:
+            return payment
+
+    return (
+        db.query(Payment)
+        .filter(
+            Payment.order_id == order_id
+        )
+        .first()
+    )
+
+
+def get_user(
+    db: Session,
+    user_id: int
+):
+    return (
+        db.query(User)
+        .filter(
+            User.id == user_id
+        )
+        .first()
+    )
 
 
 @router.post("/stripe")
@@ -133,10 +174,6 @@ async def stripe_webhook(
                 "event_type": event_type
             }
 
-        # =====================================================
-        # GET ORDER
-        # =====================================================
-
         order = (
             db.query(Order)
             .filter(
@@ -165,59 +202,6 @@ async def stripe_webhook(
             }
 
         # =====================================================
-        # GET ORDER ITEMS
-        # =====================================================
-
-        order_items = (
-            db.query(OrderItem)
-            .filter(
-                OrderItem.order_id == order.id
-            )
-            .all()
-        )
-
-        # =====================================================
-        # REDUCE PRODUCT STOCK
-        # =====================================================
-
-        for order_item in order_items:
-
-            product = (
-                db.query(Product)
-                .filter(
-                    Product.id
-                    == order_item.product_id
-                )
-                .first()
-            )
-
-            if not product:
-                raise HTTPException(
-                    status_code=404,
-                    detail=(
-                        f"Product "
-                        f"{order_item.product_id} "
-                        "not found"
-                    )
-                )
-
-            if (
-                product.stock
-                < order_item.quantity
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Insufficient stock for "
-                        f"{product.name}"
-                    )
-                )
-
-            product.stock -= (
-                order_item.quantity
-            )
-
-        # =====================================================
         # UPDATE ORDER
         # =====================================================
 
@@ -228,17 +212,11 @@ async def stripe_webhook(
         # UPDATE PAYMENT
         # =====================================================
 
-        payment = None
-
-        if payment_id:
-            payment = (
-                db.query(Payment)
-                .filter(
-                    Payment.id
-                    == int(payment_id)
-                )
-                .first()
-            )
+        payment = get_payment(
+            db=db,
+            order_id=order.id,
+            payment_id=payment_id
+        )
 
         if payment:
             payment.status = "paid"
@@ -255,6 +233,29 @@ async def stripe_webhook(
                 )
 
         # =====================================================
+        # CREATE PAYMENT SUCCESS NOTIFICATION
+        # =====================================================
+
+        create_notification(
+            db=db,
+            user_id=order.user_id,
+            notification_type="payment_successful",
+            message=(
+                f"Payment for order #{order.id} "
+                "was successful."
+            )
+        )
+
+        # =====================================================
+        # GET USER AND SEND SUCCESS EMAIL
+        # =====================================================
+
+        user = get_user(
+            db=db,
+            user_id=order.user_id
+        )
+
+        # =====================================================
         # CLEAR USER CART
         # =====================================================
 
@@ -265,10 +266,31 @@ async def stripe_webhook(
         )
 
         # =====================================================
-        # SAVE ALL CHANGES
+        # SAVE DATABASE CHANGES
         # =====================================================
 
         db.commit()
+
+        # =====================================================
+        # SEND PAYMENT SUCCESS EMAIL
+        # =====================================================
+
+        if user:
+            send_email(
+                to_email=user.email,
+                subject=(
+                    "Payment Successful - "
+                    "Smart E-Commerce Platform"
+                ),
+                message=(
+                    f"Hello {user.name},\n\n"
+                    f"Your payment for order "
+                    f"#{order.id} was successful.\n\n"
+                    f"Order Total: "
+                    f"{order.total_amount}\n\n"
+                    "Thank you for shopping with us!"
+                )
+            )
 
         return {
             "received": True,
@@ -292,29 +314,40 @@ async def stripe_webhook(
             or {}
         )
 
+        order_id = metadata.get(
+            "order_id"
+        )
+
         payment_id = metadata.get(
             "payment_id"
         )
 
-        if payment_id:
+        if order_id:
 
-            payment = (
-                db.query(Payment)
+            order = (
+                db.query(Order)
                 .filter(
-                    Payment.id
-                    == int(payment_id)
+                    Order.id == int(order_id)
                 )
                 .first()
             )
 
-            if payment:
-                payment.status = "paid"
+            if order:
 
-                payment.transaction_id = (
-                    payment_intent.get("id")
+                payment = get_payment(
+                    db=db,
+                    order_id=order.id,
+                    payment_id=payment_id
                 )
 
-                db.commit()
+                if payment:
+                    payment.status = "paid"
+
+                    payment.transaction_id = (
+                        payment_intent.get("id")
+                    )
+
+                    db.commit()
 
         return {
             "received": True,
@@ -342,40 +375,73 @@ async def stripe_webhook(
             "payment_id"
         )
 
-        if payment_id:
-
-            payment = (
-                db.query(Payment)
-                .filter(
-                    Payment.id
-                    == int(payment_id)
-                )
-                .first()
-            )
-
-            if payment:
-                payment.status = "failed"
-
-                payment.transaction_id = (
-                    payment_intent.get("id")
-                )
-
         if order_id:
 
             order = (
                 db.query(Order)
                 .filter(
-                    Order.id
-                    == int(order_id)
+                    Order.id == int(order_id)
                 )
                 .first()
             )
 
             if order:
+
+                payment = get_payment(
+                    db=db,
+                    order_id=order.id,
+                    payment_id=payment_id
+                )
+
+                if payment:
+                    payment.status = "failed"
+
+                    payment.transaction_id = (
+                        payment_intent.get("id")
+                    )
+
                 order.payment_status = "failed"
                 order.status = "cancelled"
 
-        db.commit()
+                # =============================================
+                # CREATE PAYMENT FAILED NOTIFICATION
+                # =============================================
+
+                create_notification(
+                    db=db,
+                    user_id=order.user_id,
+                    notification_type="payment_failed",
+                    message=(
+                        f"Payment for order #{order.id} "
+                        "failed. Please try again."
+                    )
+                )
+
+                user = get_user(
+                    db=db,
+                    user_id=order.user_id
+                )
+
+                db.commit()
+
+                # =============================================
+                # SEND PAYMENT FAILED EMAIL
+                # =============================================
+
+                if user:
+                    send_email(
+                        to_email=user.email,
+                        subject=(
+                            "Payment Failed - "
+                            "Smart E-Commerce Platform"
+                        ),
+                        message=(
+                            f"Hello {user.name},\n\n"
+                            f"Unfortunately, your payment "
+                            f"for order #{order.id} failed.\n\n"
+                            "Please try again."
+                        )
+                    )
 
         return {
             "received": True,
