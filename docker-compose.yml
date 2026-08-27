@@ -1,0 +1,41 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: ecommerce_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: bf6nvbshj
+      MYSQL_DATABASE: ecommerce_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  fastapi:
+    build: ./fastapi_backend
+    container_name: ecommerce_fastapi
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./fastapi_backend/.env
+    depends_on:
+      - mysql
+
+  django:
+    build: ./django_admin
+    container_name: ecommerce_django
+    ports:
+      - "8001:8001"
+    depends_on:
+      - fastapi
+
+  frontend:
+    build: ./frontend
+    container_name: ecommerce_frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - fastapi
+
+volumes:
+  mysql_data:

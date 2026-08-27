@@ -12,6 +12,8 @@ from models.cart import Cart
 from models.order import Order, OrderItem
 from models.payment import Payment
 from models.product import Product
+from models.user import User
+from utils.email_service import send_email
 from utils.permissions import customer_required
 
 
@@ -175,11 +177,6 @@ def checkout(
             demo_transaction_id
         )
 
-        payment.status = "pending"
-
-        new_order.payment_status = "pending"
-        new_order.status = "pending"
-
         db.commit()
 
         return {
@@ -338,6 +335,13 @@ def confirm_payment(
     db: Session = Depends(get_db)
 ):
 
+    if not STRIPE_SECRET_KEY:
+
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe is not configured"
+        )
+
     try:
 
         checkout_session = (
@@ -350,23 +354,33 @@ def confirm_payment(
             checkout_session.to_dict()
         )
 
-        payment_status = checkout_session_data.get(
-            "payment_status"
+        payment_status = (
+            checkout_session_data.get(
+                "payment_status"
+            )
         )
 
         if payment_status != "paid":
 
             raise HTTPException(
                 status_code=400,
-                detail="Payment has not been completed yet"
+                detail=(
+                    "Payment has not been "
+                    "completed yet"
+                )
             )
 
         session_metadata = (
-            checkout_session_data.get("metadata") or {}
+            checkout_session_data.get(
+                "metadata"
+            )
+            or {}
         )
 
-        order_id = session_metadata.get(
-            "order_id"
+        order_id = (
+            session_metadata.get(
+                "order_id"
+            )
         )
 
         if not order_id:
@@ -418,6 +432,14 @@ def confirm_payment(
             .first()
         )
 
+        user = (
+            db.query(User)
+            .filter(
+                User.id == order.user_id
+            )
+            .first()
+        )
+
         order_items = (
             db.query(OrderItem)
             .filter(
@@ -458,11 +480,13 @@ def confirm_payment(
                     )
                 )
 
-            product.stock -= (
-                order_item.quantity
+            product.stock = (
+                product.stock
+                - order_item.quantity
             )
 
         order.payment_status = "paid"
+
         order.status = "completed"
 
         if payment:
@@ -476,6 +500,29 @@ def confirm_payment(
         )
 
         db.commit()
+
+        # ====================================================
+        # SEND PAYMENT SUCCESS EMAIL
+        # ====================================================
+
+        if user:
+            send_email(
+                to_email=user.email,
+                subject=(
+                    "Payment Successful - "
+                    "Smart E-Commerce Platform"
+                ),
+                message=(
+                    f"Hello {user.name},\n\n"
+                    f"Your payment for Order "
+                    f"#{order.id} was successful.\n\n"
+                    f"Order Total: "
+                    f"₹{order.total_amount}\n\n"
+                    "Your order has been processed "
+                    "successfully.\n\n"
+                    "Thank you for shopping with us!"
+                )
+            )
 
         return {
             "message": (

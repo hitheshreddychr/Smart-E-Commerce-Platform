@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from database.connection import SessionLocal
 from models.cart import Cart
 from models.product import Product
+from routers.websocket import manager
 from schemas.cart import (
     CartCreate,
     CartRemove,
@@ -97,7 +98,7 @@ def build_cart_response(
     "/add",
     response_model=CartResponse
 )
-def add_to_cart(
+async def add_to_cart(
     cart_data: CartCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -172,10 +173,21 @@ def add_to_cart(
 
     db.commit()
 
-    return build_cart_response(
+    cart_response = build_cart_response(
         db,
         current_user["id"]
     )
+
+    await manager.send_personal_message(
+        current_user["id"],
+        {
+            "event": "cart_updated",
+            "message": "Product added to cart",
+            "cart": cart_response
+        }
+    )
+
+    return cart_response
 
 
 # ============================================================
@@ -187,7 +199,7 @@ def add_to_cart(
     "/update",
     response_model=CartResponse
 )
-def update_cart(
+async def update_cart(
     cart_data: CartUpdate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -238,10 +250,21 @@ def update_cart(
 
     db.commit()
 
-    return build_cart_response(
+    cart_response = build_cart_response(
         db,
         current_user["id"]
     )
+
+    await manager.send_personal_message(
+        current_user["id"],
+        {
+            "event": "cart_updated",
+            "message": "Cart quantity updated",
+            "cart": cart_response
+        }
+    )
+
+    return cart_response
 
 
 # ============================================================
@@ -253,7 +276,7 @@ def update_cart(
     "/remove",
     response_model=CartResponse
 )
-def remove_from_cart(
+async def remove_from_cart(
     cart_data: CartRemove,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -276,10 +299,21 @@ def remove_from_cart(
     db.delete(cart_item)
     db.commit()
 
-    return build_cart_response(
+    cart_response = build_cart_response(
         db,
         current_user["id"]
     )
+
+    await manager.send_personal_message(
+        current_user["id"],
+        {
+            "event": "cart_updated",
+            "message": "Product removed from cart",
+            "cart": cart_response
+        }
+    )
+
+    return cart_response
 
 
 # ============================================================

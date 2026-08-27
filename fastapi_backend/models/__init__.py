@@ -6,6 +6,7 @@ from database.connection import Base, engine
 from models.cart import Cart
 from models.product import Product
 from models.user import User
+from models.notification import Notification
 
 Base.metadata.create_all(bind=engine)
 

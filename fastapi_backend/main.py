@@ -2,15 +2,40 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from database.connection import Base, engine
+
 from routers import auth
 from routers import products
 from routers import cart
 from routers import users
 from routers import orders
 from routers import checkout
-from routers.password import router as password_router
 from routers import stripe_webhook
+from routers import notifications
+from routers import websocket
 
+from routers.password import router as password_router
+
+from models import user
+from models import product
+from models import cart as cart_model
+from models import order
+from models import payment
+from models import notification
+
+
+# ============================================================
+# DATABASE TABLES
+# ============================================================
+
+Base.metadata.create_all(
+    bind=engine
+)
+
+
+# ============================================================
+# FASTAPI APPLICATION
+# ============================================================
 
 app = FastAPI(
     title="Smart E-Commerce Platform API",
@@ -27,21 +52,23 @@ This API provides functionality for:
 - Checkout processing
 - Stripe webhook handling
 - Password management
+- User notifications
+- Email notifications
+- Real-time WebSocket updates
 
-Assessment 5 features include checkout functionality,
-Stripe payment integration, payment tracking, and order
-payment status updates.
+Assessment 6 features include notification management,
+email notifications, real-time updates, and WebSocket support.
 """,
     version="1.0.0",
     contact={
         "name": "Smart E-Commerce Platform"
-    },
+    }
 )
 
 
-# -----------------------------------------
+# ============================================================
 # CORS
-# -----------------------------------------
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,13 +78,13 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 
-# -----------------------------------------
-# Session Middleware
-# -----------------------------------------
+# ============================================================
+# SESSION MIDDLEWARE
+# ============================================================
 
 app.add_middleware(
     SessionMiddleware,
@@ -65,23 +92,34 @@ app.add_middleware(
 )
 
 
-# -----------------------------------------
-# Routers
-# -----------------------------------------
+# ============================================================
+# ROUTERS
+# ============================================================
 
 app.include_router(auth.router)
+
 app.include_router(products.router)
+
 app.include_router(cart.router)
+
 app.include_router(users.router)
+
 app.include_router(orders.router)
+
 app.include_router(checkout.router)
+
 app.include_router(password_router)
+
 app.include_router(stripe_webhook.router)
 
+app.include_router(notifications.router)
 
-# -----------------------------------------
-# Home
-# -----------------------------------------
+app.include_router(websocket.router)
+
+
+# ============================================================
+# HOME
+# ============================================================
 
 @app.get(
     "/",
@@ -89,8 +127,10 @@ app.include_router(stripe_webhook.router)
     summary="API Status"
 )
 def home():
+
     return {
         "message": "Smart E-Commerce Platform API is running",
         "documentation": "/docs",
-        "redoc": "/redoc"
+        "redoc": "/redoc",
+        "websocket": "/ws/{user_id}"
     }
