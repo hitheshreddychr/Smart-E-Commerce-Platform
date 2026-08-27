@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Analytics Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 30px;
+            background-color: #f4f6f9;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .dashboard {
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .cards {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            flex: 1;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            margin-top: 0;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .low-stock-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .low-stock-list li {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #fff3cd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard">
+
+        <h1>Smart E-Commerce Analytics Dashboard</h1>
+
+
+        <!-- Dashboard Cards -->
+
+        <div class="cards">
+
+            <div class="card">
+                <h3>Total Sales</h3>
+                <h2>₹{{ total_sales }}</h2>
+            </div>
+
+            <div class="card">
+                <h3>Total Orders</h3>
+                <h2>{{ total_orders }}</h2>
+            </div>
+
+            <div class="card">
+                <h3>Total Products</h3>
+                <h2>{{ total_products }}</h2>
+            </div>
+
+        </div>
+
+
+        <!-- Revenue Trends Chart -->
+
+        <div class="chart-container">
+            <h2>Revenue Trends</h2>
+
+            <canvas id="revenueChart"></canvas>
+        </div>
+
+
+        <!-- Top Selling Products -->
+
+        <div class="chart-container">
+
+            <h2>Top-Selling Products</h2>
+
+            {% if top_products %}
+
+                <ul>
+                    {% for product in top_products %}
+
+                        <li>
+                            {{ product.name }} -
+                            {{ product.quantity }} sold
+                        </li>
+
+                    {% endfor %}
+                </ul>
+
+            {% else %}
+
+                <p>No sales data available.</p>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- Low Stock Alerts -->
+
+        <div class="chart-container">
+
+            <h2>Low Stock Alerts</h2>
+
+            {% if low_stock_products %}
+
+                <ul class="low-stock-list">
+
+                    {% for product in low_stock_products %}
+
+                        <li>
+                            <strong>{{ product.name }}</strong>
+                            — Only {{ product.stock }} items left in stock!
+                        </li>
+
+                    {% endfor %}
+
+                </ul>
+
+            {% else %}
+
+                <p>No low stock alerts. Stock levels are good!</p>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    <!-- Chart.js -->
+
+    <script>
+
+        const ctx = document.getElementById("revenueChart");
+
+        new Chart(ctx, {
+
+            type: "line",
+
+            data: {
+
+                labels: {{ revenue_labels|safe }},
+
+                datasets: [{
+
+                    label: "Revenue",
+
+                    data: {{ revenue_data|safe }},
+
+                    borderWidth: 2,
+
+                    tension: 0.3
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                plugins: {
+
+                    legend: {
+                        display: true
+                    }
+
+                },
+
+                scales: {
+
+                    y: {
+
+                        beginAtZero: true
+
+                    }
+
+                }
+
+            }
+
+        });
+
+    </script>
+
+</body>
+</html>

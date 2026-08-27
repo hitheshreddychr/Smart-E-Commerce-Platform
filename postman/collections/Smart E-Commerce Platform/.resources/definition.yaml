@@ -1,2 +1,10 @@
 $kind: collection
+name: Smart E-Commerce Platform
 description: ""
+variables:
+  - key: base_url
+    value: ""
+    disabled: false
+  - key: access_token
+    secret: true
+    disabled: false
