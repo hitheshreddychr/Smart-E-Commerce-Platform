@@ -56,25 +56,12 @@ WSGI_APPLICATION = "admin_panel.wsgi.application"
 # DATABASE
 # --------------------------------------------------
 
-DATABASE_URL = (
-    BASE_DIR.parent
-    / "fastapi_backend"
-    / ".env"
-)
+import os
 
-database_url = ""
-
-if DATABASE_URL.exists():
-    with open(DATABASE_URL, "r", encoding="utf-8") as file:
-        for line in file:
-            line = line.strip()
-
-            if line.startswith("DATABASE_URL="):
-                database_url = line.split("=", 1)[1].strip()
-                break
+database_url = os.getenv("DATABASE_URL")
 
 if not database_url:
-    raise Exception("DATABASE_URL not found in fastapi_backend/.env")
+    raise Exception("DATABASE_URL environment variable not found")
 
 parsed = urlparse(database_url)
 
