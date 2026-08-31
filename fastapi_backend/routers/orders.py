@@ -10,6 +10,8 @@ from database.connection import SessionLocal
 from models.cart import Cart
 from models.order import Order, OrderItem
 from models.payment import Payment
+from models.return_request import ReturnRequest
+from schemas.return_request import (ReturnRequestCreate, ReturnRequestResponse)
 from models.product import Product
 from models.user import User
 from schemas.order import (OrderResponse, OrderStatusUpdate)
@@ -717,3 +719,72 @@ async def update_order_status(
         "order_id": order.id,
         "status": order.status
     }
+
+
+# ============================================================
+# REQUEST RETURN
+# POST /orders/{order_id}/return
+# ============================================================
+
+@router.post(
+    "/{order_id}/return",
+    response_model=ReturnRequestResponse
+)
+def request_return(
+    order_id: int,
+    return_data: ReturnRequestCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(customer_required)
+):
+    order = (
+        db.query(Order)
+        .filter(
+            Order.id == order_id,
+            Order.user_id == current_user["id"]
+        )
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(
+            status_code=404,
+            detail="Order not found"
+        )
+
+    if order.status != "delivered":
+        raise HTTPException(
+            status_code=400,
+            detail="Return can only be requested for delivered orders"
+        )
+
+    existing_request = (
+        db.query(ReturnRequest)
+        .filter(
+            ReturnRequest.order_id == order_id,
+            ReturnRequest.user_id == current_user["id"]
+        )
+        .first()
+    )
+
+    if existing_request:
+        raise HTTPException(
+            status_code=400,
+            detail="Return request already exists for this order"
+        )
+
+    new_return_request = ReturnRequest(
+        order_id=order.id,
+        user_id=current_user["id"],
+        reason=return_data.reason,
+        comment=return_data.comment,
+        status="pending"
+    )
+
+    db.add(new_return_request)
+
+    order.status = "return_requested"
+
+    db.commit()
+    db.refresh(new_return_request)
+
+    return new_return_request

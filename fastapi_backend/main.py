@@ -12,6 +12,7 @@ from routers import orders
 from routers import checkout
 from routers import stripe_webhook
 from routers import notifications
+from models import return_request
 from routers import websocket
 
 from routers.password import router as password_router
