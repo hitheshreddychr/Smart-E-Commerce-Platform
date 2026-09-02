@@ -19,6 +19,14 @@ if not DATABASE_URL:
     )
 
 
+# When FastAPI runs inside Docker, connect to the
+# MySQL server running on the Windows host machine.
+DATABASE_URL = DATABASE_URL.replace(
+    "@mysql:",
+    "@host.docker.internal:"
+)
+
+
 engine = create_engine(
     DATABASE_URL
 )

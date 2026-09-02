@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 import stripe
@@ -755,6 +756,24 @@ def request_return(
         raise HTTPException(
             status_code=400,
             detail="Return can only be requested for delivered orders"
+        )
+
+    # ========================================================
+    # RETURN WINDOW
+    # ========================================================
+    return_window_days = 7
+    return_deadline = (
+        order.created_at + timedelta(days=return_window_days)
+    )
+
+    if datetime.utcnow() > return_deadline:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Return window has expired. "
+                "Returns can only be requested within 7 days "
+                "of the order date."
+            )
         )
 
     existing_request = (

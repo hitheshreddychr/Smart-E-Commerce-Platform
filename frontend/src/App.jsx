@@ -303,6 +303,323 @@ function PaymentSuccessPage({ sessionId }) {
 }
 
 
+
+function OrdersPage({
+  orders,
+  ordersLoading,
+  ordersError,
+  onRefresh,
+  onBackToShop,
+  onRequestReturn,
+}) {
+  return (
+    <section
+      style={{
+        minHeight: "calc(100vh - 90px)",
+        background: "#f4f7fb",
+        padding: "40px 30px",
+      }}
+    >
+      <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "15px",
+            marginBottom: "30px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h1 style={{ margin: 0, color: "#111827" }}>
+              📦 Your Orders
+            </h1>
+            <p style={{ color: "#6b7280", marginTop: "8px" }}>
+              View your orders and their current status.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={onRefresh}
+              style={{
+                padding: "11px 18px",
+                border: "none",
+                borderRadius: "8px",
+                background: "#2563eb",
+                color: "white",
+                cursor: "pointer",
+                fontWeight: "600",
+              }}
+            >
+              🔄 Refresh
+            </button>
+
+            <button
+              onClick={onBackToShop}
+              style={{
+                padding: "11px 18px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                background: "white",
+                color: "#374151",
+                cursor: "pointer",
+                fontWeight: "600",
+              }}
+            >
+              ← Continue Shopping
+            </button>
+          </div>
+        </div>
+
+        {ordersLoading && (
+          <div
+            style={{
+              background: "white",
+              padding: "40px",
+              borderRadius: "15px",
+              textAlign: "center",
+              boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
+            }}
+          >
+            <h2>Loading your orders...</h2>
+            <p style={{ color: "#6b7280" }}>Please wait.</p>
+          </div>
+        )}
+
+        {ordersError && !ordersLoading && (
+          <div
+            style={{
+              background: "white",
+              padding: "30px",
+              borderRadius: "15px",
+              textAlign: "center",
+              boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
+            }}
+          >
+            <h2 style={{ color: "#dc2626" }}>
+              Unable to Load Orders
+            </h2>
+            <p style={{ color: "#374151" }}>{ordersError}</p>
+            <button
+              onClick={onRefresh}
+              style={{
+                marginTop: "15px",
+                padding: "12px 25px",
+                border: "none",
+                borderRadius: "8px",
+                background: "#2563eb",
+                color: "white",
+                cursor: "pointer",
+              }}
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {!ordersLoading && !ordersError && orders.length === 0 && (
+          <div
+            style={{
+              background: "white",
+              padding: "50px",
+              borderRadius: "15px",
+              textAlign: "center",
+              boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
+            }}
+          >
+            <div style={{ fontSize: "55px", marginBottom: "15px" }}>
+              📦
+            </div>
+            <h2>No Orders Yet</h2>
+            <p style={{ color: "#6b7280" }}>
+              Your completed orders will appear here.
+            </p>
+            <button
+              onClick={onBackToShop}
+              style={{
+                marginTop: "15px",
+                padding: "12px 25px",
+                border: "none",
+                borderRadius: "8px",
+                background: "#2563eb",
+                color: "white",
+                cursor: "pointer",
+              }}
+            >
+              Start Shopping
+            </button>
+          </div>
+        )}
+
+        {!ordersLoading && !ordersError && orders.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "20px",
+            }}
+          >
+            {orders.map((order) => (
+              <div
+                key={order.id}
+                style={{
+                  background: "white",
+                  borderRadius: "15px",
+                  padding: "25px",
+                  boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "15px",
+                    flexWrap: "wrap",
+                    borderBottom: "1px solid #e5e7eb",
+                    paddingBottom: "18px",
+                    marginBottom: "18px",
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0, color: "#111827" }}>
+                      Order #{order.id}
+                    </h2>
+                    <p style={{ margin: "7px 0 0", color: "#6b7280" }}>
+                      Order Total: ₹
+                      {Number(order.total_amount || 0).toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: "7px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "7px 14px",
+                        borderRadius: "20px",
+                        background:
+                          order.status === "delivered"
+                            ? "#dcfce7"
+                            : order.status === "shipped"
+                            ? "#dbeafe"
+                            : order.status === "return_requested"
+                            ? "#fef3c7"
+                            : "#f3f4f6",
+                        color:
+                          order.status === "delivered"
+                            ? "#166534"
+                            : order.status === "shipped"
+                            ? "#1d4ed8"
+                            : order.status === "return_requested"
+                            ? "#92400e"
+                            : "#374151",
+                        fontWeight: "700",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {String(order.status || "unknown").replace(/_/g, " ")}
+                    </span>
+
+                    <span style={{ color: "#6b7280", fontSize: "14px" }}>
+                      Payment:{" "}
+                      {String(order.payment_status || "unknown").replace(
+                        /_/g,
+                        " "
+                      )}
+                    </span>
+
+                    {String(order.status || "").toLowerCase() === "delivered" && (
+                      <button
+                        onClick={() => onRequestReturn(order)}
+                        style={{
+                          marginTop: "5px",
+                          padding: "9px 16px",
+                          border: "none",
+                          borderRadius: "8px",
+                          background: "#dc2626",
+                          color: "white",
+                          cursor: "pointer",
+                          fontWeight: "600",
+                        }}
+                      >
+                        ↩️ Request Return
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 style={{ marginBottom: "15px", color: "#374151" }}>
+                    Order Items
+                  </h3>
+
+                  {Array.isArray(order.items) && order.items.length > 0 ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                      }}
+                    >
+                      {order.items.map((item, index) => (
+                        <div
+                          key={item.id || `${order.id}-${index}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "12px 15px",
+                            background: "#f9fafb",
+                            borderRadius: "8px",
+                            gap: "15px",
+                          }}
+                        >
+                          <div>
+                            <strong>
+                              Product #{item.product_id}
+                            </strong>
+                            <p
+                              style={{
+                                margin: "4px 0 0",
+                                color: "#6b7280",
+                                fontSize: "14px",
+                              }}
+                            >
+                              Quantity: {item.quantity}
+                            </p>
+                          </div>
+
+                          <strong>
+                            ₹{Number(item.price || 0).toFixed(2)}
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ color: "#6b7280" }}>
+                      No item details available.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+
 function App() {
   const [products, setProducts] =
     useState([]);
@@ -310,10 +627,37 @@ function App() {
   const [cart, setCart] =
     useState([]);
 
+  const [orders, setOrders] =
+    useState([]);
+
+  const [ordersLoading, setOrdersLoading] =
+    useState(false);
+
+  const [ordersError, setOrdersError] =
+    useState("");
+
+  const [showReturnForm, setShowReturnForm] =
+    useState(false);
+
+  const [selectedReturnOrder, setSelectedReturnOrder] =
+    useState(null);
+
+  const [returnReason, setReturnReason] =
+    useState("");
+
+  const [returnComment, setReturnComment] =
+    useState("");
+
+  const [returnLoading, setReturnLoading] =
+    useState(false);
+
   const [showLogin, setShowLogin] =
     useState(false);
 
   const [showCart, setShowCart] =
+    useState(false);
+
+  const [showOrders, setShowOrders] =
     useState(false);
 
   const [email, setEmail] =
@@ -446,6 +790,60 @@ function App() {
   };
 
 
+
+  const fetchOrders = async () => {
+    const token =
+      localStorage.getItem("access_token");
+
+    if (!token) {
+      setOrders([]);
+      return;
+    }
+
+    setOrdersLoading(true);
+    setOrdersError("");
+
+    try {
+      const response = await fetch(
+        `${API_URL}/orders/`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+            "Unable to fetch orders."
+        );
+      }
+
+      setOrders(
+        Array.isArray(data)
+          ? data
+          : []
+      );
+    } catch (error) {
+      console.error(
+        "Fetch orders error:",
+        error
+      );
+
+      setOrders([]);
+      setOrdersError(
+        error.message ||
+          "Unable to fetch orders."
+      );
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -482,6 +880,7 @@ function App() {
         setLoggedIn(true);
 
         fetchCart();
+        fetchOrders();
       })
       .catch(() => {
         localStorage.removeItem(
@@ -579,6 +978,7 @@ function App() {
       setPassword("");
 
       await fetchCart();
+      await fetchOrders();
 
     } catch (error) {
       console.error(
@@ -592,6 +992,96 @@ function App() {
     }
 
     setLoading(false);
+  };
+
+
+  const handleRequestReturn = (order) => {
+    if (
+      !order ||
+      String(order.status || "").toLowerCase() !== "delivered"
+    ) {
+      alert("Return can only be requested for delivered orders.");
+      return;
+    }
+
+    setSelectedReturnOrder(order);
+    setReturnReason("");
+    setReturnComment("");
+    setShowReturnForm(true);
+  };
+
+  const handleSubmitReturnRequest = async (event) => {
+    event.preventDefault();
+
+    if (!selectedReturnOrder) {
+      return;
+    }
+
+    if (!returnReason.trim()) {
+      alert("Please enter a return reason.");
+      return;
+    }
+
+    const token =
+      localStorage.getItem("access_token");
+
+    if (!token) {
+      alert("Please login before requesting a return.");
+      setShowReturnForm(false);
+      setShowLogin(true);
+      return;
+    }
+
+    setReturnLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/orders/${selectedReturnOrder.id}/return`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            reason: returnReason.trim(),
+            comment: returnComment.trim() || null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+            "Unable to submit return request."
+        );
+      }
+
+      alert(
+        `Return request submitted successfully for Order #${selectedReturnOrder.id}.`
+      );
+
+      setShowReturnForm(false);
+      setSelectedReturnOrder(null);
+      setReturnReason("");
+      setReturnComment("");
+
+      await fetchOrders();
+    } catch (error) {
+      console.error(
+        "Return request error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to submit return request."
+      );
+    } finally {
+      setReturnLoading(false);
+    }
   };
 
 
@@ -609,8 +1099,10 @@ function App() {
     setLoggedIn(false);
 
     setCart([]);
+    setOrders([]);
 
     setShowCart(false);
+    setShowOrders(false);
   };
 
 
@@ -894,6 +1386,7 @@ function App() {
       );
 
       await fetchCart();
+      await fetchOrders();
 
       setShowCart(false);
 
@@ -1042,6 +1535,7 @@ function App() {
           className="logo"
           onClick={() => {
             setShowCart(false);
+            setShowOrders(false);
 
             window.scrollTo(
               0,
@@ -1070,9 +1564,10 @@ function App() {
 
           <a
             href="#products"
-            onClick={() =>
-              setShowCart(false)
-            }
+            onClick={() => {
+              setShowCart(false);
+              setShowOrders(false);
+            }}
           >
             Products
           </a>
@@ -1105,6 +1600,19 @@ function App() {
           )}
 
 
+          {loggedIn && (
+            <button
+              className="nav-button"
+              onClick={() => {
+                setShowCart(false);
+                setShowOrders(true);
+                fetchOrders();
+              }}
+            >
+              📦 Orders
+            </button>
+          )}
+
           <button
             className="cart-button"
             onClick={() => {
@@ -1118,6 +1626,7 @@ function App() {
                 return;
               }
 
+              setShowOrders(false);
               setShowCart(true);
 
               fetchCart();
@@ -1231,7 +1740,181 @@ function App() {
         )}
 
 
-      {showCart ? (
+      {showReturnForm && selectedReturnOrder && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              width: "100%",
+              maxWidth: "520px",
+              borderRadius: "16px",
+              padding: "30px",
+              boxShadow: "0 15px 50px rgba(0,0,0,0.2)",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>
+              ↩️ Request Return
+            </h2>
+
+            <p style={{ color: "#6b7280" }}>
+              Order #{selectedReturnOrder.id}
+            </p>
+
+            <form onSubmit={handleSubmitReturnRequest}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontWeight: "600",
+                  color: "#374151",
+                }}
+              >
+                Return Reason *
+              </label>
+
+              <textarea
+                value={returnReason}
+                onChange={(event) =>
+                  setReturnReason(event.target.value)
+                }
+                placeholder="Enter the reason for returning this order"
+                rows="4"
+                required
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  marginBottom: "18px",
+                  fontSize: "15px",
+                  resize: "vertical",
+                }}
+              />
+
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontWeight: "600",
+                  color: "#374151",
+                }}
+              >
+                Comment (Optional)
+              </label>
+
+              <textarea
+                value={returnComment}
+                onChange={(event) =>
+                  setReturnComment(event.target.value)
+                }
+                placeholder="Add any additional details"
+                rows="4"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  marginBottom: "20px",
+                  fontSize: "15px",
+                  resize: "vertical",
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!returnLoading) {
+                      setShowReturnForm(false);
+                      setSelectedReturnOrder(null);
+                      setReturnReason("");
+                      setReturnComment("");
+                    }
+                  }}
+                  disabled={returnLoading}
+                  style={{
+                    padding: "11px 18px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    background: "white",
+                    color: "#374151",
+                    cursor: returnLoading
+                      ? "not-allowed"
+                      : "pointer",
+                    fontWeight: "600",
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    returnLoading ||
+                    !returnReason.trim()
+                  }
+                  style={{
+                    padding: "11px 18px",
+                    border: "none",
+                    borderRadius: "8px",
+                    background: "#dc2626",
+                    color: "white",
+                    cursor:
+                      returnLoading ||
+                      !returnReason.trim()
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity:
+                      returnLoading ||
+                      !returnReason.trim()
+                        ? 0.6
+                        : 1,
+                    fontWeight: "600",
+                  }}
+                >
+                  {returnLoading
+                    ? "Submitting..."
+                    : "Submit Return Request"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showOrders ? (
+
+        <OrdersPage
+          orders={orders}
+          ordersLoading={ordersLoading}
+          ordersError={ordersError}
+          onRefresh={fetchOrders}
+          onRequestReturn={handleRequestReturn}
+          onBackToShop={() => {
+            setShowOrders(false);
+          }}
+        />
+
+      ) : showCart ? (
 
         <section className="cart-page">
 

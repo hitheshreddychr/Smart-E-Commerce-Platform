@@ -1,6 +1,15 @@
 # This creates the Order and OrderItem database models
 
-from sqlalchemy import Column, ForeignKey, Integer, Numeric, String
+from datetime import datetime
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String
+)
 
 from database.connection import Base
 
@@ -34,6 +43,12 @@ class Order(Base):
     payment_status = Column(
         String(50),
         default="pending",
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
         nullable=False
     )
 
