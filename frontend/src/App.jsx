@@ -667,10 +667,16 @@ function App() {
     useState("");
 
   const [loggedIn, setLoggedIn] =
-    useState(false);
+  useState(false);
 
   const [user, setUser] =
     useState(null);
+
+  const [notifications, setNotifications] =
+    useState([]);
+
+  const [showNotifications, setShowNotifications] =
+    useState(false);
 
   const [loginError, setLoginError] =
     useState("");
@@ -710,6 +716,50 @@ function App() {
 
     return [];
   };
+  
+  
+  const fetchNotifications = async () => {
+    const token =
+  localStorage.getItem("access_token");
+  
+  if (!token) {
+    setNotifications([]);
+    return;
+  }
+  
+  try {
+    const response = await fetch(
+      `${API_URL}/notifications`,
+      {
+        headers: {
+          Authorization:
+          `Bearer ${token}`,
+        },
+      }
+    );
+    if (!response.ok) {
+      throw new Error(
+        "Unable to fetch notifications"
+      );
+    }
+    
+    const data =
+    await response.json();
+    
+    setNotifications(
+      Array.isArray(data)
+      ? data
+      : []
+    );
+  } catch (error) {
+    console.error(
+      "Error fetching notifications:",
+      error
+    );
+    
+    setNotifications([]);
+  }
+};
 
 
   const fetchProducts = async () => {
@@ -899,6 +949,16 @@ function App() {
       });
 
   }, []);
+
+
+  useEffect(() => {
+    if (!loggedIn) {
+      setNotifications([]);
+      return;
+    }
+
+    fetchNotifications();
+  }, [loggedIn]);
 
 
   const handleLogin = async (
@@ -1551,6 +1611,84 @@ function App() {
 
 
         <div className="nav-links">
+
+          {loggedIn && (
+            <>
+              <button
+                className="notification-button"
+                onClick={() =>
+                  setShowNotifications(
+                    !showNotifications
+                  )
+                }
+                aria-label="Notifications"
+              >
+                🔔
+
+                {notifications.filter(
+                  (notification) =>
+                    !notification.read_status
+                ).length > 0 && (
+                  <span className="notification-badge">
+                    {notifications.filter(
+                      (notification) =>
+                        !notification.read_status
+                    ).length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="notification-dropdown">
+
+                  <div className="notification-header">
+                    <strong>
+                      Notifications
+                    </strong>
+                    </div>
+                  
+                  {notifications.length === 0 ? (
+                    <div className="notification-empty">
+                      No notifications
+                    </div>
+                  ) : (
+                    notifications.map(
+                      (notification) => (
+                        <div
+  key={notification.id}
+  className={
+    notification.read_status
+      ? "notification-item"
+      : "notification-item unread"
+  }
+  onClick={() =>
+    markNotificationAsRead(
+      notification.id
+    )
+  }
+  role="button"
+  tabIndex={0}
+>
+  <div className="notification-message">
+    {notification.message}
+  </div>
+
+  <div className="notification-time">
+    {notification.timestamp
+      ? new Date(
+          notification.timestamp
+        ).toLocaleString()
+      : ""}
+  </div>
+</div>
+                      )
+                    )
+                  )}
+
+                </div>
+              )}
+            </>
+          )}
 
           <a
             href="#"
