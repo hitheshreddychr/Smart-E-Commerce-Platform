@@ -620,6 +620,406 @@ function OrdersPage({
 }
 
 
+function ReviewSection({
+  product,
+  reviewData,
+  loggedIn,
+  onLogin,
+  reviewForm,
+  onRatingChange,
+  onCommentChange,
+  onSubmit,
+  submitting,
+}) {
+  const [showTopReviews, setShowTopReviews] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewSort, setReviewSort] = useState("highest");
+
+  const averageRating = Number(reviewData?.average_rating || 0);
+  const totalReviews = Number(reviewData?.total_reviews || 0);
+  const reviews = Array.isArray(reviewData?.reviews)
+    ? reviewData.reviews
+    : [];
+
+  const sortedReviews = [...reviews].sort((a, b) => {
+    if (reviewSort === "highest") {
+      if (Number(b.rating) !== Number(a.rating)) {
+        return Number(b.rating) - Number(a.rating);
+      }
+      return String(b.created_at || "").localeCompare(
+        String(a.created_at || "")
+      );
+    }
+
+    if (reviewSort === "lowest") {
+      if (Number(a.rating) !== Number(b.rating)) {
+        return Number(a.rating) - Number(b.rating);
+      }
+      return String(b.created_at || "").localeCompare(
+        String(a.created_at || "")
+      );
+    }
+
+    if (reviewSort === "newest") {
+      return String(b.created_at || "").localeCompare(
+        String(a.created_at || "")
+      );
+    }
+
+    return String(a.created_at || "").localeCompare(
+      String(b.created_at || "")
+    );
+  });
+
+  const renderStars = (rating) => {
+    const numericRating = Math.max(
+      0,
+      Math.min(5, Math.round(Number(rating) || 0))
+    );
+
+    return (
+      <span
+        aria-label={`${numericRating} out of 5 stars`}
+        style={{ letterSpacing: "2px" }}
+      >
+        {Array.from({ length: 5 }, (_, index) =>
+          index < numericRating ? "★" : "☆"
+        ).join("")}
+      </span>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: "20px",
+        paddingTop: "18px",
+        borderTop: "1px solid #e5e7eb",
+      }}
+    >
+      {/* Always-visible full rating summary */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "10px",
+          flexWrap: "wrap",
+          marginBottom: "15px",
+        }}
+      >
+        <div>
+          <strong style={{ color: "#111827" }}>
+            ⭐ {averageRating.toFixed(1)} / 5
+          </strong>
+          <span style={{ color: "#6b7280", marginLeft: "8px" }}>
+            ({totalReviews} {totalReviews === 1 ? "review" : "reviews"})
+          </span>
+        </div>
+        <div style={{ color: "#f59e0b", fontSize: "18px" }}>
+          {renderStars(averageRating)}
+        </div>
+      </div>
+
+      {/* One expandable Top Reviews section */}
+      {reviews.length > 0 && (
+        <div style={{ marginBottom: "12px" }}>
+          <button
+            type="button"
+            onClick={() => setShowTopReviews((current) => !current)}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: "10px 12px",
+              border: "1px solid #e5e7eb",
+              borderRadius: showTopReviews ? "8px 8px 0 0" : "8px",
+              background: "#f8fafc",
+              color: "#111827",
+              cursor: "pointer",
+              fontWeight: "700",
+              fontSize: "13px",
+            }}
+          >
+            {showTopReviews ? "▼" : "▶"} Top Reviews ({reviews.length})
+          </button>
+
+          {showTopReviews && (
+            <div
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
+                borderTop: "none",
+                borderRadius: "0 0 8px 8px",
+                padding: "12px",
+              }}
+            >
+              {/* Review sorting */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px",
+                  marginBottom: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <label
+                  htmlFor={`review-sort-${product.id}`}
+                  style={{
+                    color: "#374151",
+                    fontWeight: "600",
+                    fontSize: "12px",
+                  }}
+                >
+                  Sort Reviews
+                </label>
+                <select
+                  id={`review-sort-${product.id}`}
+                  value={reviewSort}
+                  onChange={(event) => setReviewSort(event.target.value)}
+                  style={{
+                    padding: "7px 8px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    background: "white",
+                    color: "#374151",
+                    fontSize: "12px",
+                  }}
+                >
+                  <option value="highest">Highest Rating → Lowest</option>
+                  <option value="lowest">Lowest Rating → Highest</option>
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                </select>
+              </div>
+
+              {/* All reviews */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                {sortedReviews.map((review, index) => (
+                  <div
+                    key={review.id}
+                    style={{
+                      padding: "10px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "7px",
+                      background: "#f9fafb",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div>
+                        <span style={{ color: "#f59e0b", fontSize: "14px" }}>
+                          {renderStars(review.rating)}
+                        </span>
+                        <strong
+                          style={{
+                            color: "#374151",
+                            fontSize: "12px",
+                            marginLeft: "7px",
+                          }}
+                        >
+                          Review #{index + 1}
+                        </strong>
+                      </div>
+                      <span style={{ color: "#6b7280", fontSize: "11px" }}>
+                        User #{review.user_id}
+                      </span>
+                    </div>
+                    <p
+                      style={{
+                        margin: "7px 0 0",
+                        color: "#374151",
+                        lineHeight: "1.5",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {review.comment}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {reviews.length === 0 && (
+        <p style={{ color: "#6b7280", fontSize: "13px", margin: "0 0 12px" }}>
+          No reviews yet.
+        </p>
+      )}
+
+      {/* Write a Review stays below Top Reviews */}
+      <div style={{ marginBottom: "0" }}>
+        <button
+          type="button"
+          onClick={() => setShowReviewForm((current) => !current)}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            padding: "10px 12px",
+            border: "1px solid #e5e7eb",
+            borderRadius: showReviewForm ? "8px 8px 0 0" : "8px",
+            background: "#f8fafc",
+            color: "#111827",
+            cursor: "pointer",
+            fontWeight: "700",
+            fontSize: "13px",
+          }}
+        >
+          {showReviewForm ? "▼" : "▶"} Write a Review
+        </button>
+
+        {showReviewForm && (
+          <div
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e5e7eb",
+              borderTop: "none",
+              borderRadius: "0 0 8px 8px",
+              padding: "12px",
+            }}
+          >
+            {!loggedIn ? (
+              <div>
+                <p
+                  style={{
+                    color: "#6b7280",
+                    fontSize: "13px",
+                    margin: "0 0 10px",
+                  }}
+                >
+                  Login to review {product.name}.
+                </p>
+                <button
+                  type="button"
+                  onClick={onLogin}
+                  style={{
+                    padding: "9px 14px",
+                    border: "none",
+                    borderRadius: "7px",
+                    background: "#2563eb",
+                    color: "white",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                  }}
+                >
+                  Login to Review
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={(event) => onSubmit(event, product.id)}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    color: "#374151",
+                    fontWeight: "600",
+                    fontSize: "13px",
+                  }}
+                >
+                  Rating
+                </label>
+
+                <select
+                  value={reviewForm.rating}
+                  onChange={(event) => onRatingChange(event.target.value)}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "9px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "7px",
+                    marginBottom: "10px",
+                    background: "white",
+                  }}
+                >
+                  <option value="5">★★★★★ - 5</option>
+                  <option value="4">★★★★☆ - 4</option>
+                  <option value="3">★★★☆☆ - 3</option>
+                  <option value="2">★★☆☆☆ - 2</option>
+                  <option value="1">★☆☆☆☆ - 1</option>
+                </select>
+
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    color: "#374151",
+                    fontWeight: "600",
+                    fontSize: "13px",
+                  }}
+                >
+                  Comment
+                </label>
+
+                <textarea
+                  value={reviewForm.comment}
+                  onChange={(event) => onCommentChange(event.target.value)}
+                  placeholder="Share your experience with this product"
+                  rows="3"
+                  maxLength="1000"
+                  required
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "10px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "7px",
+                    marginBottom: "10px",
+                    fontSize: "14px",
+                    resize: "vertical",
+                  }}
+                />
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    padding: "9px 14px",
+                    border: "none",
+                    borderRadius: "7px",
+                    background: submitting ? "#9ca3af" : "#16a34a",
+                    color: "white",
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    fontWeight: "600",
+                  }}
+                >
+                  {submitting ? "Submitting..." : "Submit Review"}
+                </button>
+
+                <p
+                  style={{
+                    color: "#6b7280",
+                    fontSize: "12px",
+                    margin: "9px 0 0",
+                  }}
+                >
+                  Your review will appear immediately after it is submitted.
+                </p>
+              </form>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [products, setProducts] =
     useState([]);
@@ -683,6 +1083,15 @@ function App() {
 
   const [loading, setLoading] =
     useState(false);
+
+  const [reviewsByProduct, setReviewsByProduct] =
+    useState({});
+
+  const [reviewForms, setReviewForms] =
+    useState({});
+
+  const [reviewSubmittingProduct, setReviewSubmittingProduct] =
+    useState(null);
 
 
   const pathname =
@@ -760,6 +1169,63 @@ function App() {
     setNotifications([]);
   }
 };
+
+
+  const markNotificationAsRead = async (
+    notificationId
+  ) => {
+    const token =
+      localStorage.getItem("access_token");
+
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/notifications/read`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            Authorization:
+              `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            notification_ids: [
+              notificationId,
+            ],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to mark notification as read"
+        );
+      }
+
+      setNotifications(
+        (currentNotifications) =>
+          currentNotifications.map(
+            (notification) =>
+              notification.id ===
+              notificationId
+                ? {
+                    ...notification,
+                    read_status: true,
+                  }
+                : notification
+          )
+      );
+    } catch (error) {
+      console.error(
+        "Error marking notification as read:",
+        error
+      );
+    }
+  };
 
 
   const fetchProducts = async () => {
@@ -894,9 +1360,138 @@ function App() {
     }
   };
 
+  const fetchProductReviews = async (productId) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/products/${productId}/reviews`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Unable to fetch product reviews."
+        );
+      }
+
+      setReviewsByProduct((currentReviews) => ({
+        ...currentReviews,
+        [productId]: data,
+      }));
+    } catch (error) {
+      console.error(
+        `Error fetching reviews for product ${productId}:`,
+        error
+      );
+
+      setReviewsByProduct((currentReviews) => ({
+        ...currentReviews,
+        [productId]: {
+          product_id: productId,
+          average_rating: 0,
+          total_reviews: 0,
+          reviews: [],
+        },
+      }));
+    }
+  };
+
+  const fetchAllProductReviews = async (productList) => {
+    if (!Array.isArray(productList) || productList.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      productList.map((product) =>
+        fetchProductReviews(product.id)
+      )
+    );
+  };
+
+  const handleSubmitReview = async (event, productId) => {
+    event.preventDefault();
+
+    if (!loggedIn) {
+      alert("Please login before submitting a review.");
+      setShowLogin(true);
+      return;
+    }
+
+    const currentReviewForm =
+      reviewForms[productId] || { rating: "5", comment: "" };
+
+    const comment = currentReviewForm.comment.trim();
+    const rating = Number(currentReviewForm.rating);
+
+    if (!comment) {
+      alert("Please enter a review comment.");
+      return;
+    }
+
+    if (rating < 1 || rating > 5) {
+      alert("Please select a rating between 1 and 5.");
+      return;
+    }
+
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      alert("Please login before submitting a review.");
+      setShowLogin(true);
+      return;
+    }
+
+    setReviewSubmittingProduct(productId);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/reviews?product_id=${encodeURIComponent(
+          productId
+        )}&rating=${encodeURIComponent(
+          rating
+        )}&comment=${encodeURIComponent(comment)}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Unable to submit review."
+        );
+      }
+
+      alert(
+        "Review submitted successfully! Refresh the page to see it."
+      );
+
+      setReviewForms((currentForms) => ({
+        ...currentForms,
+        [productId]: { rating: "5", comment: "" },
+      }));
+      await fetchProductReviews(productId);
+    } catch (error) {
+      console.error("Submit review error:", error);
+      alert(
+        error.message || "Unable to submit review."
+      );
+    } finally {
+      setReviewSubmittingProduct(null);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    fetchAllProductReviews(products);
+  }, [products]);
 
 
   useEffect(() => {
@@ -1616,11 +2211,14 @@ function App() {
             <>
               <button
                 className="notification-button"
-                onClick={() =>
-                  setShowNotifications(
-                    !showNotifications
-                  )
-                }
+                onClick={() => {
+                  const nextShowNotifications = !showNotifications;
+                  setShowNotifications(nextShowNotifications);
+
+                  if (nextShowNotifications) {
+                    fetchNotifications();
+                  }
+                }}
                 aria-label="Notifications"
               >
                 🔔
@@ -1654,7 +2252,7 @@ function App() {
                   ) : (
                     notifications.map(
                       (notification) => (
-                        <div
+                       <div
   key={notification.id}
   className={
     notification.read_status
@@ -2361,6 +2959,45 @@ function App() {
                       <p className="price">
                         ₹{product.price}
                       </p>
+
+                      <ReviewSection
+                        product={product}
+                        reviewData={reviewsByProduct[product.id]}
+                        loggedIn={loggedIn}
+                        onLogin={() => setShowLogin(true)}
+                        reviewForm={
+                          reviewForms[product.id] || {
+                            rating: "5",
+                            comment: "",
+                          }
+                        }
+                        onRatingChange={(rating) =>
+                          setReviewForms((currentForms) => ({
+                            ...currentForms,
+                            [product.id]: {
+                              ...(currentForms[product.id] || {
+                                rating: "5",
+                                comment: "",
+                              }),
+                              rating,
+                            },
+                          }))
+                        }
+                        onCommentChange={(comment) =>
+                          setReviewForms((currentForms) => ({
+                            ...currentForms,
+                            [product.id]: {
+                              ...(currentForms[product.id] || {
+                                rating: "5",
+                                comment: "",
+                              }),
+                              comment,
+                            },
+                          }))
+                        }
+                        onSubmit={handleSubmitReview}
+                        submitting={reviewSubmittingProduct === product.id}
+                      />
 
 
                       {Number(

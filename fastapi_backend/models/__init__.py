@@ -7,6 +7,7 @@ from models.cart import Cart
 from models.product import Product
 from models.user import User
 from models.notification import Notification
+from models.review import Review
 
 Base.metadata.create_all(bind=engine)
 

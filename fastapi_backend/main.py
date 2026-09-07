@@ -13,6 +13,7 @@ from routers import checkout
 from routers import stripe_webhook
 from routers import notifications
 from routers import returns
+from routers import reviews
 from models import return_request
 from routers import websocket
 
@@ -24,7 +25,7 @@ from models import cart as cart_model
 from models import order
 from models import payment
 from models import notification
-
+from models import review
 
 
 # ============================================================
@@ -58,9 +59,13 @@ This API provides functionality for:
 - User notifications
 - Email notifications
 - Real-time WebSocket updates
+- Product reviews and ratings
 
 Assessment 6 features include notification management,
 email notifications, real-time updates, and WebSocket support.
+
+Assessment 10 features include product reviews,
+ratings, review validation, and rating aggregation.
 """,
     version="1.0.0",
     contact={
@@ -116,8 +121,10 @@ app.include_router(password_router)
 app.include_router(stripe_webhook.router)
 
 app.include_router(notifications.router)
-    
+
 app.include_router(returns.router)
+
+app.include_router(reviews.router)
 
 app.include_router(websocket.router)
 
