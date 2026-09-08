@@ -1020,6 +1020,191 @@ function ReviewSection({
   );
 }
 
+
+
+function RecommendationProductCard({ product, onAddToCart, onViewSimilar }) {
+  return (
+    <div
+      style={{
+        background: "white",
+        borderRadius: "14px",
+        padding: "15px",
+        minWidth: "220px",
+        maxWidth: "240px",
+        flex: "0 0 220px",
+        boxShadow: "0 5px 18px rgba(0,0,0,0.08)",
+        border: "1px solid #e5e7eb",
+      }}
+    >
+      <img
+        src={product.images || "https://via.placeholder.com/220"}
+        alt={product.name}
+        style={{
+          width: "100%",
+          height: "170px",
+          objectFit: "cover",
+          borderRadius: "10px",
+          background: "#f3f4f6",
+        }}
+      />
+
+      <h3
+        style={{
+          margin: "12px 0 7px",
+          color: "#111827",
+          fontSize: "17px",
+        }}
+      >
+        {product.name}
+      </h3>
+
+      <p
+        style={{
+          margin: "0 0 8px",
+          color: "#2563eb",
+          fontWeight: "700",
+          fontSize: "16px",
+        }}
+      >
+        ₹{product.price}
+      </p>
+
+      <p
+        style={{
+          margin: "0 0 12px",
+          color: "#6b7280",
+          fontSize: "13px",
+        }}
+      >
+        {product.category || "General"}
+      </p>
+
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => onViewSimilar(product.id)}
+          style={{
+            flex: 1,
+            minWidth: "100px",
+            padding: "9px 10px",
+            border: "1px solid #2563eb",
+            borderRadius: "7px",
+            background: "white",
+            color: "#2563eb",
+            cursor: "pointer",
+            fontWeight: "600",
+            fontSize: "12px",
+          }}
+        >
+          Similar
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onAddToCart(product.id)}
+          disabled={Number(product.stock) <= 0}
+          style={{
+            flex: 1,
+            minWidth: "100px",
+            padding: "9px 10px",
+            border: "none",
+            borderRadius: "7px",
+            background: Number(product.stock) <= 0 ? "#9ca3af" : "#16a34a",
+            color: "white",
+            cursor: Number(product.stock) <= 0 ? "not-allowed" : "pointer",
+            fontWeight: "600",
+            fontSize: "12px",
+          }}
+        >
+          {Number(product.stock) <= 0 ? "Out of Stock" : "Add to Cart"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+function RecommendationSection({
+  title,
+  products,
+  loading,
+  emptyMessage,
+  onAddToCart,
+  onViewSimilar,
+}) {
+  return (
+    <section
+      style={{
+        maxWidth: "1200px",
+        margin: "0 auto 35px",
+        padding: "0 30px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "15px",
+          gap: "10px",
+          flexWrap: "wrap",
+        }}
+      >
+        <h2 style={{ margin: 0, color: "#111827" }}>{title}</h2>
+        <span style={{ color: "#6b7280", fontSize: "13px" }}>
+          Smart recommendations
+        </span>
+      </div>
+
+      {loading ? (
+        <div
+          style={{
+            background: "white",
+            borderRadius: "12px",
+            padding: "25px",
+            textAlign: "center",
+            color: "#6b7280",
+          }}
+        >
+          Loading recommendations...
+        </div>
+      ) : products.length === 0 ? (
+        <div
+          style={{
+            background: "white",
+            borderRadius: "12px",
+            padding: "25px",
+            textAlign: "center",
+            color: "#6b7280",
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          {emptyMessage}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            gap: "16px",
+            overflowX: "auto",
+            padding: "5px 2px 15px",
+          }}
+        >
+          {products.map((product) => (
+            <RecommendationProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+              onViewSimilar={onViewSimilar}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+
 function App() {
   const [products, setProducts] =
     useState([]);
@@ -1094,6 +1279,28 @@ function App() {
     useState(null);
 
 
+  const [recommendedProducts, setRecommendedProducts] =
+    useState([]);
+
+  const [trendingProducts, setTrendingProducts] =
+    useState([]);
+
+  const [similarProducts, setSimilarProducts] =
+    useState([]);
+
+  const [similarProductId, setSimilarProductId] =
+    useState(null);
+
+  const [recommendationsLoading, setRecommendationsLoading] =
+    useState(false);
+
+  const [trendingLoading, setTrendingLoading] =
+    useState(false);
+
+  const [similarLoading, setSimilarLoading] =
+    useState(false);
+
+
   const pathname =
     window.location.pathname;
 
@@ -1127,6 +1334,135 @@ function App() {
   };
   
   
+  const normalizeProductList = (data) => {
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    if (Array.isArray(data?.products)) {
+      return data.products;
+    }
+
+    if (Array.isArray(data?.recommendations)) {
+      return data.recommendations;
+    }
+
+    if (Array.isArray(data?.data)) {
+      return data.data;
+    }
+
+    return [];
+  };
+
+
+  const fetchRecommendations = async (userId) => {
+    if (!userId) {
+      setRecommendedProducts([]);
+      return;
+    }
+
+    setRecommendationsLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/recommendations/${userId}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Unable to fetch recommendations."
+        );
+      }
+
+      setRecommendedProducts(normalizeProductList(data));
+    } catch (error) {
+      console.error("Recommendation fetch error:", error);
+      setRecommendedProducts([]);
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  };
+
+
+  const fetchTrendingProducts = async () => {
+    setTrendingLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/products/trending`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Unable to fetch trending products."
+        );
+      }
+
+      setTrendingProducts(normalizeProductList(data));
+    } catch (error) {
+      console.error("Trending products fetch error:", error);
+      setTrendingProducts([]);
+    } finally {
+      setTrendingLoading(false);
+    }
+  };
+
+
+  const fetchSimilarProducts = async (productId) => {
+    if (!productId) {
+      return;
+    }
+
+    setSimilarProductId(productId);
+    setSimilarLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/products/${productId}/similar`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Unable to fetch similar products."
+        );
+      }
+
+      setSimilarProducts(normalizeProductList(data));
+    } catch (error) {
+      console.error("Similar products fetch error:", error);
+      setSimilarProducts([]);
+    } finally {
+      setSimilarLoading(false);
+    }
+  };
+
+
+  const recordProductView = async (productId) => {
+    if (!loggedIn || !user?.id || !productId) {
+      return;
+    }
+
+    try {
+      await fetch(
+        `${API_URL}/products/${productId}/view?user_id=${encodeURIComponent(
+          user.id
+        )}`,
+        {
+          method: "POST",
+        }
+      );
+    } catch (error) {
+      console.error("Product view tracking error:", error);
+    }
+  };
+
+
   const fetchNotifications = async () => {
     const token =
   localStorage.getItem("access_token");
@@ -1554,6 +1890,21 @@ function App() {
 
     fetchNotifications();
   }, [loggedIn]);
+
+
+  useEffect(() => {
+    fetchTrendingProducts();
+  }, []);
+
+
+  useEffect(() => {
+    if (!loggedIn || !user?.id) {
+      setRecommendedProducts([]);
+      return;
+    }
+
+    fetchRecommendations(user.id);
+  }, [loggedIn, user?.id]);
 
 
   const handleLogin = async (
@@ -2911,6 +3262,40 @@ function App() {
           </section>
 
 
+          {loggedIn && (
+            <RecommendationSection
+              title="Recommended For You"
+              products={recommendedProducts}
+              loading={recommendationsLoading}
+              emptyMessage="Browse or purchase a few products and we will personalize recommendations for you."
+              onAddToCart={handleAddToCart}
+              onViewSimilar={fetchSimilarProducts}
+            />
+          )}
+
+
+          <RecommendationSection
+            title="You May Also Like"
+            products={trendingProducts}
+            loading={trendingLoading}
+            emptyMessage="Trending products are not available right now."
+            onAddToCart={handleAddToCart}
+            onViewSimilar={fetchSimilarProducts}
+          />
+
+
+          {similarProductId && (
+            <RecommendationSection
+              title={`Similar Products${getProduct(similarProductId)?.name ? ` — ${getProduct(similarProductId).name}` : ""}`}
+              products={similarProducts}
+              loading={similarLoading}
+              emptyMessage="No similar products were found for this product."
+              onAddToCart={handleAddToCart}
+              onViewSimilar={fetchSimilarProducts}
+            />
+          )}
+
+
           <section
             className="products-section"
             id="products"
@@ -2939,12 +3324,27 @@ function App() {
                         product.name
                       }
                       className="product-image"
+                      onClick={() => {
+                        recordProductView(product.id);
+                        fetchSimilarProducts(product.id);
+                      }}
+                      style={{
+                        cursor: "pointer",
+                      }}
                     />
 
 
                     <div className="product-details">
 
-                      <h3>
+                      <h3
+                        onClick={() => {
+                          recordProductView(product.id);
+                          fetchSimilarProducts(product.id);
+                        }}
+                        style={{
+                          cursor: "pointer",
+                        }}
+                      >
                         {product.name}
                       </h3>
 
@@ -3023,6 +3423,27 @@ function App() {
 
                       )}
 
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          recordProductView(product.id);
+                          fetchSimilarProducts(product.id);
+                        }}
+                        style={{
+                          width: "100%",
+                          marginBottom: "8px",
+                          padding: "10px",
+                          border: "1px solid #2563eb",
+                          borderRadius: "7px",
+                          background: "white",
+                          color: "#2563eb",
+                          cursor: "pointer",
+                          fontWeight: "600",
+                        }}
+                      >
+                        View Similar Products
+                      </button>
 
                       <button
                         className="add-cart"
